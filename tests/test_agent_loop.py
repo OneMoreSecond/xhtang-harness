@@ -194,6 +194,80 @@ def test_agent_loop_loads_matching_local_skill_body(tmp_path: Path) -> None:
     assert "skill_context_loaded" in [event.type for event in events]
 
 
+def test_agent_loop_continues_session_after_skill_secret_round(tmp_path: Path) -> None:
+    description = "Use when the prompt says silver compass memory check."
+    secret = "hidden-secret: saffron-vector-8842"
+    skill_dir = tmp_path / ".skills" / "silver-compass"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "\n".join(
+            [
+                "---",
+                "name: silver-compass",
+                f"description: {description}",
+                "---",
+                "",
+                "When this skill is active, answer with:",
+                secret,
+            ]
+        ),
+        encoding="utf-8",
+    )
+    first_config = load_config(prompt=description, env={}, cwd=tmp_path)
+    provider = ScriptedProvider(
+        (
+            DeepSeekResponse(
+                content=f"I read the local skill secret: {secret}",
+                reasoning_content=None,
+                tool_calls=(),
+                finish_reason="stop",
+                usage=None,
+            ),
+            DeepSeekResponse(
+                content=secret,
+                reasoning_content=None,
+                tool_calls=(),
+                finish_reason="stop",
+                usage=None,
+            ),
+        )
+    )
+    registry = ToolRegistry()
+
+    with SQLiteStore(first_config.state_path) as store:
+        loop = AgentLoop(
+            store=store,
+            provider=provider,  # type: ignore[arg-type]
+            registry=registry,
+            executor=ToolExecutor(registry),
+        )
+
+        first_events = tuple(loop.run(config=first_config))
+        session_id = str(first_events[0].payload["session_id"])
+        second_config = load_config(
+            prompt="What was the secret from the previous round?",
+            overrides=ConfigOverrides(session=session_id),
+            env={},
+            cwd=tmp_path,
+        )
+        second_events = tuple(loop.run(config=second_config))
+
+    first_messages = provider.requests[0][0]
+    second_messages = provider.requests[1][0]
+    assert isinstance(first_messages, tuple)
+    assert isinstance(second_messages, tuple)
+    assert first_messages[0].role == "system"
+    assert secret in str(first_messages[0].content)
+    assert [message.role for message in second_messages] == [
+        "user",
+        "assistant",
+        "user",
+    ]
+    assert secret in str(second_messages[1].content)
+    assert "skill_context_loaded" in [event.type for event in first_events]
+    assert "skill_context_loaded" not in [event.type for event in second_events]
+
+
 def test_agent_loop_reflects_on_skill_learning_suggest(tmp_path: Path) -> None:
     config = load_config(
         prompt="summarize reusable workflow",
