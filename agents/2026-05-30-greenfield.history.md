@@ -69,3 +69,53 @@ Cleaned up wording after final document review.
 Changes recorded:
 - Replaced a stale task-document phrase about documenting local installation with wording about local execution and checks.
 - Kept the latest task document focused on the no-install worktree command requirement.
+
+---
+
+agent: Codex
+time: 2026-05-30 11:49:38
+
+Implemented the new user requirement: "updated AGENTS.md to remove the use raw python3.12 without virtual environment requirement; update to the canonical uv solution".
+
+Changes recorded:
+- Replaced direct `python3.12` and custom `bin/xhtang-harness` workflow documentation with `uv sync`, `uv run xhtang-harness`, and `uv run ...` checks.
+- Removed `bin/xhtang-harness`; the package script in `pyproject.toml` is now the canonical local runnable command via uv.
+- Removed the subprocess regression test for the deleted wrapper.
+- Removed pytest's `pythonpath = ["src"]` override so tests use the uv-installed package.
+- Updated this task document to record uv project environment behavior and the latest decisions.
+
+---
+
+agent: Codex
+time: 2026-05-30 11:51:12
+
+Validated the canonical uv workflow.
+
+Changes recorded:
+- Confirmed `uv sync` creates and updates the local project environment successfully.
+- Confirmed `uv run xhtang-harness "Show a usable agent harness demo"` and `uv run python -m xhtang_harness "Show a usable agent harness demo"` pass.
+- Confirmed `uv run pytest` passes with 4 tests.
+- Confirmed `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src`, and `uv lock --check` pass.
+
+---
+
+agent: Codex
+time: 2026-05-30 11:51:12
+
+Completed final markdown review for the uv workflow.
+
+Changes recorded:
+- Added `.python-version` with `3.12` so uv has an explicit local interpreter pin.
+- Updated `README.md` and the task document to state the supported Python version through uv-managed project metadata.
+
+---
+
+agent: Codex
+time: 2026-05-30 11:52:21
+
+Re-ran validation after adding `.python-version`.
+
+Changes recorded:
+- Confirmed `uv sync` still succeeds.
+- Confirmed `uv run python --version` uses Python 3.12.9.
+- Confirmed `uv run xhtang-harness`, `uv run python -m xhtang_harness`, `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src`, and `uv lock --check` still pass.

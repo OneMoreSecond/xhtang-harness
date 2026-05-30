@@ -145,11 +145,6 @@ ALWAYS verify syntax after editing JSON files.
 
 ## Python
 
-NEVER create virtual environment because it does not fit in engineering practice of current team.
-Use `python3.12` directly (fallback to `python3` if not available) to run Python scripts.
-
-Ask for installation if fail to import Python library.
-
 ALWAYS create Python script file before running it.
 Avoid running raw code string with `python -c` or other tools because it's hard to maintain and debug.
 
@@ -165,31 +160,30 @@ Avoid running raw code string with `python -c` or other tools because it's hard 
 
 ## Python commands
 
-Use direct `python3.12` commands for local checks:
+Use the uv project environment for local setup, commands, and checks:
 
 ```bash
-python3.12 -m pytest
-python3.12 -m ruff check .
-python3.12 -m ruff format --check .
-python3.12 -m mypy src
+uv sync
 ```
 
-Run the local CLI from the current checkout or git worktree without installing
-the project into the user Python environment:
+Run the CLI from the current checkout or git worktree without user-wide
+installation:
 
 ```bash
-./bin/xhtang-harness "Show a usable agent harness demo"
+uv run xhtang-harness "Show a usable agent harness demo"
 ```
 
-Install missing development tools into the user Python environment only after
-the user agrees:
+Run local checks through uv:
 
 ```bash
-python3.12 -m pip install --user "pytest>=8.3" "ruff>=0.11" "mypy>=1.15"
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
 ```
 
-Use `uv` only for lockfile maintenance without creating a virtual environment:
+Refresh the lockfile when project dependencies change:
 
 ```bash
-uv lock --python python3.12 --no-python-downloads
+uv lock
 ```

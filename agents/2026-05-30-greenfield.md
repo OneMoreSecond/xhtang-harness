@@ -23,68 +23,74 @@ add new chapters in AGENTS.md to describe the setup.
 | Distribution name | Package published/installed as `xhtang-harness`. | [Decision based on repository directory name] |
 | Import package | Python import name `xhtang_harness`. | [Decision based on Python package naming rules] |
 | CLI | Command-line entry point for a quick usable demo. | [User task goal: "requiring show a usable demo in limited time"] |
-| Local command entry | Repository-owned executable that runs the current checkout without user-wide package installation. | [User instruction: "give a local runnable command entry without user-wide install, for compatible with git worktree"] |
+| uv project environment | Checkout-local environment managed by `uv sync` and used through `uv run`. | [uv project guide: https://docs.astral.sh/uv/guides/projects/] |
 
-- The repository contains a Python package skeleton under `src/xhtang_harness/`, a minimal CLI in `src/xhtang_harness/cli.py`, tests in `tests/`, project metadata in `pyproject.toml`, and setup documentation in `README.md` and `AGENTS.md`. [source: `rg --files`, `pyproject.toml`, `README.md`]
-- Root `AGENTS.md` requires using `python3.12` directly and never creating virtual environments. [source: `AGENTS.md`]
-- Local tools available: `python3.12` 3.12.9, `uv` 0.11.16, `pytest` 8.3.5, and `ruff` 0.11.4. `mypy` is not installed for `python3.12`. [source: shell tool checks]
+- The repository contains a Python package skeleton under `src/xhtang_harness/`, a minimal CLI in `src/xhtang_harness/cli.py`, tests in `tests/`, project metadata in `pyproject.toml`, a `.python-version` pin, and setup documentation in `README.md` and `AGENTS.md`. [source: `rg --files`, `pyproject.toml`, `README.md`, `.python-version`]
+- Root `AGENTS.md` no longer forbids virtual environments and now should document uv project commands. [source: user instruction, `AGENTS.md`]
+- Local tools available include `python3.12` 3.12.9 and `uv` 0.11.16. Development tools should be run from the uv-managed project environment. [source: shell tool checks, user instruction]
 - The `python-green-field` skill recommends `src/` layout, `pyproject.toml`, `pytest`, `ruff`, one type checker, and a small installable package. [source: `python-green-field` skill]
-- The new requirement is to provide a command that runs locally from each checkout without user-wide installation, which avoids console-script collisions across git worktrees. [source: user instruction]
+- uv documents `uv run` as the project command runner and says it keeps the environment up to date before running the command. [source: uv running commands docs: https://docs.astral.sh/uv/concepts/projects/run/]
+- uv creates a project virtual environment and `uv.lock` in the project root when project commands run, so each git worktree gets an isolated local environment. [source: uv project guide: https://docs.astral.sh/uv/guides/projects/]
 
 ## Constraint and Assumption
 
 - Preserve the original task text above the separator and keep implementation scope small. [source: `AGENTS.md`]
-- Do not create a virtual environment; validation commands must use `python3.12` directly. [source: `AGENTS.md`]
 - Treat this as a private/internal application package, not a package intended for public publishing. [source: task context plus decision]
 - Use `xhtang-harness` as the distribution name and `xhtang_harness` as the import package name. [source: repository name]
-- Choose `uv` for lockfile maintenance because it is installed and is the skill's default modern choice for new internal packages, but avoid `uv sync` and `uv pip install --user` because the former creates `.venv` and the latter is unsupported by this `uv` version. [source: shell tool checks, `uv pip install --user --dry-run`, `python-green-field` skill, `AGENTS.md`]
-- Avoid user-wide project installation for normal CLI execution because a user-wide editable install can point to only one checkout at a time and is awkward across git worktrees. [source: user instruction]
+- Use uv as the canonical project manager because the user explicitly requested the canonical uv solution. [source: user instruction]
+- Pin the local project interpreter to Python 3.12 with `.python-version`, while keeping `requires-python = ">=3.12"` in package metadata. [source: uv project guide, `pyproject.toml`]
+- Avoid user-wide project installation for normal CLI execution; `uv run xhtang-harness` runs the package script in the current checkout's uv environment. [source: user instruction, uv running commands docs]
 - Defer runtime LLM provider integration; the greenfield task is project setup plus a minimal CLI demo. [source: limited task scope]
 
 ## Challenges
 
-- The greenfield skill prefers package-manager workflows, while root `AGENTS.md` forbids virtual environments. [source: `python-green-field` skill, `AGENTS.md`]
 - A meaningful LLM agent harness needs product decisions not present in the task, so the initial demo should avoid fake provider behavior. [source: task document]
-- `mypy` is selected for static typing but is not available locally yet. [source: shell tool check]
-- Installed console scripts are user-wide and can point at the wrong editable checkout when multiple git worktrees exist. [source: user instruction]
+- Installed console scripts are user-wide and can point at the wrong editable checkout when multiple git worktrees exist; uv project commands avoid that by using the current checkout. [source: user instruction, uv running commands docs]
 
 ## Decisions
 
 - Create a minimal installable Python package using `src/` layout and Hatchling build backend. [source: `python-green-field` skill]
 - Add a small CLI with `argparse` so the repository has an immediate demo surface without speculative architecture. [source: task goal and simplicity constraint]
 - Configure dev tooling in `pyproject.toml`: `pytest`, `ruff`, and `mypy`. [source: `python-green-field` skill]
-- Add `uv.lock` for reproducible dependency resolution but document direct `python3.12` commands for local execution and checks. [source: `uv` availability and root `AGENTS.md`]
-- Add `bin/xhtang-harness` as a repository-local command that prepends this checkout's `src/` path and calls the existing CLI. [source: user instruction, `src/xhtang_harness/cli.py`]
+- Add `.python-version` with `3.12` for uv's project interpreter selection. [source: uv project guide]
+- Add `uv.lock` for reproducible dependency resolution and document `uv sync`, `uv run xhtang-harness`, and `uv run ...` checks as the canonical workflow. [source: user instruction, uv project guide]
+- Remove the custom `bin/xhtang-harness` wrapper because `uv run xhtang-harness` is the narrower canonical interface and still works per checkout/worktree. [source: user instruction, uv running commands docs]
 - Do not add pre-commit, CI, docs, examples, or service scaffolding in this task. [source: limited task scope]
 
 ## Design
 
 - Add project metadata and tool configuration in `pyproject.toml`.
 - Add `src/xhtang_harness/` with `__init__.py`, `__main__.py`, `cli.py`, and `py.typed`.
-- Add `bin/xhtang-harness` as a worktree-local command entry for no-install CLI runs.
+- Add `.python-version` to pin uv's local interpreter family.
+- Expose the CLI through `[project.scripts]` and run it with `uv run xhtang-harness`.
 - Add focused tests under `tests/` for the CLI demo and package metadata.
-- Add `README.md` with supported Python version and canonical setup/test commands.
+- Add `README.md` with canonical uv setup/test commands.
 - Add `.gitignore` for Python caches, local environments, build outputs, coverage files, and secret env files.
-- Add an `AGENTS.md` project setup chapter describing package layout and direct Python commands.
+- Add an `AGENTS.md` project setup chapter describing package layout and uv commands.
 
 ## Todo
 
 - [x] Read task document and root instructions.
 - [x] Check local Python and tooling availability.
 - [x] Add project skeleton files.
-- [x] Generate dependency lockfile without creating a virtual environment.
-- [x] Run formatting, lint, tests, and available static checks.
+- [x] Generate dependency lockfile.
+- [x] Run formatting, lint, tests, and type checks through uv.
 - [x] Add a local no-install command entry compatible with git worktrees.
 - [x] Update README, AGENTS, and tests for the local command entry.
+- [x] Replace the custom local wrapper with canonical uv project commands.
+- [x] Add `.python-version` for uv's local interpreter selection.
+- [x] Remove pytest's `pythonpath` override so uv-installed package behavior is tested.
 - [x] Update task results and append task history.
 
 ## Results
 
-- Added a Python 3.12 project skeleton with `pyproject.toml`, `README.md`, `.gitignore`, `src/xhtang_harness/`, `tests/`, and `uv.lock`. [source: code changes]
-- Added a minimal CLI demo available through the worktree-local `./bin/xhtang-harness` command without user-wide installation. [source: `bin/xhtang-harness`, `src/xhtang_harness/cli.py`, `README.md`]
-- Added `AGENTS.md` project setup chapters for package layout, direct Python checks, no-install local CLI execution, and `uv lock` maintenance. [source: `AGENTS.md`]
-- Verified `uv lock --check --python python3.12 --no-python-downloads` succeeds and did not create `.venv`. [source: shell validation]
-- Verified `python3.12 -m pytest` passes with 5 tests. [source: shell validation]
-- Verified `python3.12 -m ruff check .` and `python3.12 -m ruff format --check .` pass. [source: shell validation]
-- Verified the demo with `./bin/xhtang-harness "Show a usable agent harness demo"` and `PYTHONPATH=src python3.12 -m xhtang_harness "Show a usable agent harness demo"`. [source: shell validation]
-- `python3.12 -m mypy src` is configured but was not runnable because `mypy` is not installed in the current `python3.12` environment. [source: shell validation]
+- Added a Python 3.12 project skeleton with `.python-version`, `pyproject.toml`, `README.md`, `.gitignore`, `src/xhtang_harness/`, `tests/`, and `uv.lock`. [source: code changes]
+- Added a minimal CLI demo available through `uv run xhtang-harness "Show a usable agent harness demo"` without user-wide installation. [source: `pyproject.toml`, `src/xhtang_harness/cli.py`, `README.md`]
+- Added `AGENTS.md` project setup chapters for package layout, `uv sync`, uv-run CLI execution, uv-run checks, and `uv lock` maintenance. [source: `AGENTS.md`]
+- Removed `bin/xhtang-harness`; the canonical local command is now the project script invoked by uv. [source: user instruction, code changes]
+- Removed pytest's `pythonpath = ["src"]` override so `uv run pytest` uses the package installed in the uv project environment. [source: `pyproject.toml`, uv project guide]
+- Verified `uv sync` succeeds. [source: shell validation]
+- Verified `uv run python --version` uses Python 3.12.9. [source: shell validation]
+- Verified `uv run xhtang-harness "Show a usable agent harness demo"` and `uv run python -m xhtang_harness "Show a usable agent harness demo"` succeed. [source: shell validation]
+- Verified `uv run pytest` passes with 4 tests. [source: shell validation]
+- Verified `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src` pass. [source: shell validation]
