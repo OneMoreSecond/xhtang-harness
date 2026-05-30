@@ -1,0 +1,6 @@
+interface:
+  display_name: "Error Message"
+  short_description: "Write helpful user-facing error copy"
+  default_prompt: "Use $error-message to improve this user-facing error message."
+policy:
+  allow_implicit_invocation: true
