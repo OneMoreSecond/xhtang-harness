@@ -152,3 +152,44 @@ Ask for installation if fail to import Python library.
 
 ALWAYS create Python script file before running it.
 Avoid running raw code string with `python -c` or other tools because it's hard to maintain and debug.
+
+# Project Setup
+
+## Python package
+
+- Distribution name: `xhtang-harness`.
+- Import package: `xhtang_harness`.
+- Package source lives under `src/xhtang_harness/`.
+- Tests live under `tests/`.
+- Project metadata and tool configuration live in `pyproject.toml`.
+
+## Python commands
+
+Use direct `python3.12` commands for local checks:
+
+```bash
+python3.12 -m pytest
+python3.12 -m ruff check .
+python3.12 -m ruff format --check .
+python3.12 -m mypy src
+```
+
+Install the project into the user Python environment only when local execution
+needs package entry points:
+
+```bash
+python3.12 -m pip install --user -e .
+```
+
+Install missing development tools into the user Python environment only after
+the user agrees:
+
+```bash
+python3.12 -m pip install --user "pytest>=8.3" "ruff>=0.11" "mypy>=1.15"
+```
+
+Use `uv` only for lockfile maintenance without creating a virtual environment:
+
+```bash
+uv lock --python python3.12 --no-python-downloads
+```
