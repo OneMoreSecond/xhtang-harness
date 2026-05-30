@@ -75,6 +75,7 @@ The CLI keeps one-shot behavior for scripts and tests, but in an interactive ter
 - [x] Create the required task-plan structure and history file. [source: `AGENTS.md`]
 - [x] Implement the CLI multi-round input loop. [source: design decision]
 - [x] Add focused CLI tests. [source: `tests/test_cli.py`]
+- [x] Add a two-round skill-secret verification for session continuity. [source: user instruction, `agents/2026-05-30-create-skill.md`, `tests/test_agent_loop.py`]
 - [x] Run targeted and project checks. [source: `AGENTS.md`]
 - [x] Review edited markdown and record final results. [source: `AGENTS.md`]
 
@@ -86,4 +87,6 @@ Skill learning remains owned by `AgentLoop`; because the CLI waits for the full 
 
 Added CLI tests for accepting a second prompt after post-completion skill-learning events, reusing the session id for the follow-up run, and preserving one-shot behavior when stdin is not interactive. [source: `tests/test_cli.py`]
 
-Validation passed: `uv run pytest tests/test_cli.py`, `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check src/xhtang_harness/cli.py tests/test_cli.py`, and `uv run mypy src`. Repo-wide `uv run ruff format --check .` still reports `examples/fib30.py` would be reformatted; that file was not modified for this task and has no worktree diff. [source: command output]
+Added the requested session-continuity verification based on the local skill format from `agents/2026-05-30-create-skill.md`: a temporary skill contains secret `hidden-secret: saffron-vector-8842`; round one prompts the agent to read the matching skill; round two asks for the previous secret without matching the skill text. The test asserts the second provider request contains the prior assistant message with the secret and does not reload skill context, proving the answer can come from continued session history. [source: user instruction, `agents/2026-05-30-create-skill.md`, `tests/test_agent_loop.py`]
+
+Validation passed: `uv run pytest tests/test_cli.py`, `uv run pytest tests/test_agent_loop.py tests/test_cli.py`, `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check src/xhtang_harness/cli.py tests/test_cli.py tests/test_agent_loop.py`, and `uv run mypy src`. Repo-wide `uv run ruff format --check .` still reports `examples/fib30.py` would be reformatted; that file was not modified for this task and has no worktree diff. [source: command output]
