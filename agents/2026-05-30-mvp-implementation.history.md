@@ -117,3 +117,40 @@ Clarified partial MVP checklist items.
 Changes recorded:
 - Avoided overclaiming deferred log, artifact, session-list, streaming-provider, retry-failure-test, and artifact-directory work.
 - Added a config test for invalid reasoning effort.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:55:01
+
+Started MVP bash tool implementation.
+
+Recent human instructions:
+- Implement a bash tool in MVP.
+
+Changes recorded:
+- Added a design decision for a bounded local `bash` tool.
+- Added a Todo item for command, cwd, timeout, exit-code, stdout, and stderr handling.
+- Added a Results entry recording implementation start.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:56:22
+
+Recorded bash tool implementation details.
+
+Changes recorded:
+- Marked the bash tool Todo item complete.
+- Added README usage and built-in tool descriptions.
+- Added Results entries for implementation behavior and focused tool-test validation.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:57:08
+
+Recorded final bash tool validation.
+
+Changes recorded:
+- Added Results entry for full pytest, ruff, format-check, and mypy validation after bash tool implementation.

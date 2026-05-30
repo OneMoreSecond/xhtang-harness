@@ -62,6 +62,7 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 - Define internal dataclasses for messages, events, tool calls, provider options, and usage before provider or storage code. [source: `doc/module-responsibilities.md`, design decision]
 - Keep the provider adapter behind a narrow protocol so the agent loop can be tested with scripted fake provider responses. [source: `doc/module-responsibilities.md`, `AGENTS.md`]
 - Start with one built-in safe tool named `get_current_time`, implemented with an injectable clock for tests and no filesystem side effects. [source: `doc/mvp.md`, design decision]
+- Add an MVP `bash` tool as an explicit local shell escape with argument validation, bounded timeout, and compact stdout/stderr/status output. [source: user instruction on 2026-05-30, design decision]
 - Persist final messages, run status, tool calls, and usage in SQLite for the MVP; persist every stream token as an event only if event replay is enabled later. [source: `doc/persistent-data-storage.md`, `doc/mvp.md`, design decision]
 - Render CLI output as line-oriented events plus final answer text, not a rich terminal UI. [source: `doc/ux-expectations.md`, `doc/mvp.md`]
 - Use exit code `0` for success, `2` for usage/configuration errors, `1` for runtime/provider/tool failures, and `130` for cancellation. [source: `doc/external-interfaces.md`, design decision]
@@ -196,6 +197,7 @@ The checkboxes below track MVP implementation status for the current branch. [so
 - [ ] Put any tool-created files under the current run artifact directory by default. [source: user follow-up, `doc/external-interfaces.md`]
 - [x] Persist tool call start/result/failure states. [source: `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/storage/sqlite.py`]
 - [x] Add tests for valid tool execution, unknown tool, invalid JSON, and executor exception. [source: `tests/tools/`]
+- [x] Add an MVP `bash` tool with command, cwd, timeout, exit-code, stdout, and stderr handling. [source: `src/xhtang_harness/tools/builtin.py`, `tests/tools/test_builtin.py`, user instruction on 2026-05-30]
 
 ### Phase 4: DeepSeek Provider Adapter
 
@@ -252,3 +254,8 @@ The checkboxes below track MVP implementation status for the current branch. [so
 - Verified `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src` pass. [source: shell validation on 2026-05-30]
 - Verified missing API key behavior with `env -u DEEPSEEK_API_KEY uv run xhtang-harness "hello"` returning exit code 2 and a `config_error` message. [source: shell validation on 2026-05-30]
 - Verified `uv run xhtang-harness --version` still prints `xhtang-harness 0.1.0`. [source: shell validation on 2026-05-30]
+- Started MVP bash tool implementation. [source: user instruction on 2026-05-30]
+- Implemented built-in `bash` tool exposed through the default registry; it runs `/bin/bash -lc`, accepts optional `cwd` and `timeout_seconds`, captures exit code/stdout/stderr, trims large output, and reports timeout/startup errors as tool failures. [source: `src/xhtang_harness/tools/builtin.py`]
+- Added tests for bash tool registration, success, nonzero exit reporting, relative cwd, invalid arguments, missing cwd, timeout, and executor integration. [source: `tests/tools/test_builtin.py`, `tests/tools/test_executor.py`]
+- Verified focused bash tool tests with `uv run pytest tests/tools/test_builtin.py tests/tools/test_executor.py`. [source: shell validation on 2026-05-30]
+- Verified full checks after bash tool implementation: `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src` pass. [source: shell validation on 2026-05-30]
