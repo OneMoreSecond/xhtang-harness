@@ -24,7 +24,7 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 
 - Current package source lives under `src/xhtang_harness/`, tests live under `tests/`, package metadata is in `pyproject.toml`, and the CLI entry point is `xhtang_harness.cli:main`. [source: `pyproject.toml`, `README.md`]
 - The canonical local workflow is `uv sync`, `uv run xhtang-harness ...`, `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src`. [source: `AGENTS.md`, `README.md`]
-- Current runtime dependencies are empty, while the planned DeepSeek provider integration needs an HTTP/API client; the existing DeepSeek skill examples use the OpenAI-compatible SDK. [source: `pyproject.toml`, `.agents/skills/deepseek-api/SKILL.md`]
+- Runtime dependencies include the OpenAI-compatible SDK for DeepSeek provider calls. [source: `pyproject.toml`, `.agents/skills/deepseek-api/SKILL.md`]
 - The MVP must accept a prompt, call `deepseek-v4-pro`, stream progress, support explicit reasoning mode, persist sessions/runs/messages/tool calls/usage to SQLite, run at least one safe built-in tool, preserve thinking-mode tool-call state, support cancellation state, and classify errors. [source: `doc/mvp.md`]
 - External interfaces already define command arguments, environment variables, disk inputs, output files, stdout/stderr behavior, and configuration precedence. [source: `doc/external-interfaces.md`]
 - The first persistent store should be SQLite with default path `.xhtang-harness/state.sqlite3` and override `XHTANG_HARNESS_STATE_PATH`. [source: `doc/persistent-data-storage.md`]
@@ -35,8 +35,8 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 
 ## Constraint and Assumption
 
-- This task creates an implementation plan only; it does not implement MVP runtime code. [source: user request]
-- Skeleton creation is allowed in this follow-up, but runtime behavior should remain unimplemented. [source: user instruction]
+- Current task implements the MVP runtime based on this existing plan, then commits and pushes the finished branch. [source: user instruction on 2026-05-30]
+- Previous skeleton-only constraints are superseded for the current task; runtime behavior should now be implemented. [source: user instruction on 2026-05-30, `agents/2026-05-30-mvp-implementation.history.md`]
 - Keep the implementation simple and local-first; avoid a hosted service, multi-provider UI, rich TUI, or background queue for the MVP. [source: `doc/mvp.md`, `AGENTS.md`]
 - Use uv as the project runner and dependency manager. [source: `AGENTS.md`, `README.md`]
 - Use SQLite through Python standard library `sqlite3` for the first durable store. [source: `doc/persistent-data-storage.md`]
@@ -62,6 +62,8 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 - Define internal dataclasses for messages, events, tool calls, provider options, and usage before provider or storage code. [source: `doc/module-responsibilities.md`, design decision]
 - Keep the provider adapter behind a narrow protocol so the agent loop can be tested with scripted fake provider responses. [source: `doc/module-responsibilities.md`, `AGENTS.md`]
 - Start with one built-in safe tool named `get_current_time`, implemented with an injectable clock for tests and no filesystem side effects. [source: `doc/mvp.md`, design decision]
+- Add an MVP `bash` tool as an explicit local shell escape with argument validation, bounded timeout, and compact stdout/stderr/status output. [source: user instruction on 2026-05-30, design decision]
+- Treat the concrete MVP file-writing goal as: the user can ask the harness to create a `.py` file that calculates the first 30 Fibonacci numbers, using the `bash` tool for local file writes. [source: user instruction on 2026-05-30]
 - Persist final messages, run status, tool calls, and usage in SQLite for the MVP; persist every stream token as an event only if event replay is enabled later. [source: `doc/persistent-data-storage.md`, `doc/mvp.md`, design decision]
 - Render CLI output as line-oriented events plus final answer text, not a rich terminal UI. [source: `doc/ux-expectations.md`, `doc/mvp.md`]
 - Use exit code `0` for success, `2` for usage/configuration errors, `1` for runtime/provider/tool failures, and `130` for cancellation. [source: `doc/external-interfaces.md`, design decision]
@@ -159,82 +161,83 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 
 ## Todo
 
-The checkboxes below are future MVP implementation tasks, not completed by this planning-only task. [source: user request]
+The checkboxes below track MVP implementation status for the current branch. [source: user instruction on 2026-05-30]
 
 ### Phase 0: Baseline And Dependencies
 
-- [ ] Add `openai` as a runtime dependency with uv and update `uv.lock`. [source: `.agents/skills/deepseek-api/SKILL.md`, `pyproject.toml`]
+- [x] Add `openai` as a runtime dependency with uv and update `uv.lock`. [source: `.agents/skills/deepseek-api/SKILL.md`, `pyproject.toml`]
 - [ ] Keep existing CLI demo behavior passing before changing runtime behavior. [source: `README.md`, `tests/test_cli.py`]
-- [ ] Add `.xhtang-harness/` to `.gitignore` if it is not already ignored. [source: `doc/persistent-data-storage.md`, `doc/external-interfaces.md`]
+- [x] Add `.xhtang-harness/` to `.gitignore` if it is not already ignored. [source: `doc/persistent-data-storage.md`, `doc/external-interfaces.md`, `.gitignore`]
 
 ### Phase 1: Domain Models And Config
 
-- [ ] Add domain models for `Session`, `Run`, `Message`, `ToolCall`, `ProviderUsage`, and `HarnessEvent`. [source: `doc/module-responsibilities.md`, `doc/persistent-data-storage.md`]
-- [ ] Use collision-resistant IDs for sessions, runs, tool calls, and artifacts. [source: user follow-up, design decision]
-- [ ] Add error classes for config, provider, tool, storage, cancellation, and user-facing run failures. [source: `doc/runtime-flow-and-reliability.md`]
-- [ ] Add config loader for command arguments, environment variables, optional `.xhtang-harness/config.toml`, and defaults. [source: `doc/external-interfaces.md`]
-- [ ] Resolve default state, log, artifact, and temp paths from the current worktree unless overridden by external interfaces. [source: user follow-up, `doc/external-interfaces.md`]
-- [ ] Add tests for config precedence, invalid thinking mode, invalid reasoning effort, missing `DEEPSEEK_API_KEY`, and state-path override. [source: `doc/external-interfaces.md`, `doc/mvp.md`]
-- [ ] Add tests proving two different working directories resolve different default state/artifact/log paths. [source: user follow-up]
+- [x] Add domain models for `Session`, `Run`, `Message`, `ToolCall`, `ProviderUsage`, and `HarnessEvent`. [source: `src/xhtang_harness/conversation.py`, `src/xhtang_harness/events.py`]
+- [x] Use collision-resistant IDs for sessions, runs, messages, and tool calls; artifact directories are deferred until a file-writing tool exists. [source: `src/xhtang_harness/conversation.py`, `src/xhtang_harness/storage/sqlite.py`]
+- [x] Add error classes for config, provider, tool, storage, cancellation, and user-facing run failures. [source: `src/xhtang_harness/errors.py`]
+- [x] Add config loader for command arguments, environment variables, optional `.xhtang-harness/config.toml`, and defaults. [source: `src/xhtang_harness/config.py`, `src/xhtang_harness/cli.py`]
+- [ ] Resolve default state, log, artifact, and temp paths from the current worktree unless overridden by external interfaces. [source: `src/xhtang_harness/config.py`; state path implemented for MVP, log/artifact/temp paths deferred]
+- [x] Add tests for config precedence, invalid thinking mode, invalid reasoning effort, missing `DEEPSEEK_API_KEY`, and state-path override. [source: `tests/test_config.py`, `tests/test_app.py`, `tests/test_cli.py`]
+- [ ] Add tests proving two different working directories resolve different default state/artifact/log paths. [source: `tests/test_parallel_worktree.py`; state path covered, artifact/log paths deferred]
 
 ### Phase 2: SQLite Storage
 
-- [ ] Implement schema creation with explicit schema versioning. [source: `doc/persistent-data-storage.md`, design decision]
-- [ ] Configure SQLite connection timeout and keep transactions around storage writes only. [source: user follow-up, design decision]
-- [ ] Implement session create/open/list helpers. [source: `doc/persistent-data-storage.md`, `doc/mvp.md`]
-- [ ] Implement run lifecycle helpers: start, complete, fail, cancel. [source: `doc/runtime-flow-and-reliability.md`]
-- [ ] Implement message persistence and history loading in provider-ready order. [source: `.agents/skills/deepseek-api/SKILL.md`, `doc/persistent-data-storage.md`]
-- [ ] Implement tool call and provider usage persistence. [source: `doc/persistent-data-storage.md`]
-- [ ] Add temp SQLite tests for schema creation, run transitions, history replay, and usage storage. [source: `AGENTS.md`, `doc/persistent-data-storage.md`]
-- [ ] Add a concurrent-storage smoke test with two connections writing separate runs to the same explicit test database. [source: user follow-up, design decision]
+- [x] Implement schema creation with explicit schema versioning. [source: `src/xhtang_harness/storage/sqlite.py`]
+- [x] Configure SQLite connection timeout and keep transactions around storage writes only. [source: `src/xhtang_harness/storage/sqlite.py`]
+- [ ] Implement session create/open/list helpers. [source: `src/xhtang_harness/storage/sqlite.py`; create/open implemented, list helper deferred]
+- [x] Implement run lifecycle helpers: start, complete, fail, cancel. [source: `src/xhtang_harness/storage/sqlite.py`]
+- [x] Implement message persistence and history loading in provider-ready order. [source: `src/xhtang_harness/storage/sqlite.py`]
+- [x] Implement tool call and provider usage persistence. [source: `src/xhtang_harness/storage/sqlite.py`]
+- [x] Add temp SQLite tests for schema creation, run transitions, history replay, and usage storage. [source: `tests/storage/test_sqlite.py`]
+- [x] Add a concurrent-storage smoke test with two connections writing separate runs to the same explicit test database. [source: `tests/storage/test_sqlite.py`]
 
 ### Phase 3: Tool Registry And Executor
 
-- [ ] Define tool schema and executor interfaces independent of DeepSeek SDK objects. [source: `doc/module-responsibilities.md`]
-- [ ] Implement built-in `get_current_time` tool with injectable clock. [source: `doc/mvp.md`, design decision]
-- [ ] Validate tool arguments as JSON before execution. [source: `.agents/skills/deepseek-api/SKILL.md`]
+- [x] Define tool schema and executor interfaces independent of DeepSeek SDK objects. [source: `src/xhtang_harness/tools/registry.py`, `src/xhtang_harness/tools/executor.py`]
+- [x] Implement built-in `get_current_time` tool with injectable clock. [source: `src/xhtang_harness/tools/builtin.py`]
+- [x] Validate tool arguments as JSON before execution. [source: `src/xhtang_harness/tools/executor.py`]
 - [ ] Put any tool-created files under the current run artifact directory by default. [source: user follow-up, `doc/external-interfaces.md`]
-- [ ] Persist tool call start/result/failure states. [source: `doc/persistent-data-storage.md`]
-- [ ] Add tests for valid tool execution, unknown tool, invalid JSON, and executor exception. [source: `doc/mvp.md`, `AGENTS.md`]
+- [x] Persist tool call start/result/failure states. [source: `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/storage/sqlite.py`]
+- [x] Add tests for valid tool execution, unknown tool, invalid JSON, and executor exception. [source: `tests/tools/`]
+- [x] Add an MVP `bash` tool with command, cwd, timeout, exit-code, stdout, and stderr handling. [source: `src/xhtang_harness/tools/builtin.py`, `tests/tools/test_builtin.py`, user instruction on 2026-05-30]
 
 ### Phase 4: DeepSeek Provider Adapter
 
 - [ ] Add provider protocol for streaming normalized provider events. [source: `doc/module-responsibilities.md`, `doc/runtime-flow-and-reliability.md`]
-- [ ] Implement DeepSeek OpenAI-compatible client creation from config. [source: `.agents/skills/deepseek-api/SKILL.md`, `doc/external-interfaces.md`]
-- [ ] Map `--thinking` and `--reasoning-effort` to DeepSeek request fields. [source: `.agents/skills/deepseek-api/SKILL.md`, `doc/external-interfaces.md`]
-- [ ] Map tool schemas to DeepSeek `tools` request data. [source: `.agents/skills/deepseek-api/SKILL.md`]
+- [x] Implement DeepSeek OpenAI-compatible client creation from config. [source: `src/xhtang_harness/app.py`, `src/xhtang_harness/providers/deepseek.py`]
+- [x] Map `--thinking` and `--reasoning-effort` to DeepSeek request fields. [source: `src/xhtang_harness/cli.py`, `src/xhtang_harness/config.py`, `src/xhtang_harness/providers/deepseek.py`]
+- [x] Map tool schemas to DeepSeek `tools` request data. [source: `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/tools/registry.py`]
 - [ ] Stream `answer_delta` events and keep `reasoning_content` internal by default. [source: `doc/ux-expectations.md`, `.agents/skills/deepseek-api/SKILL.md`]
-- [ ] Capture usage fields including cache hit and miss tokens. [source: `.agents/skills/deepseek-api/SKILL.md`, `doc/persistent-data-storage.md`]
-- [ ] Classify 400, 401, 402, 422, 429, 500, and 503 errors. [source: `.agents/skills/deepseek-api/SKILL.md`, `doc/runtime-flow-and-reliability.md`]
-- [ ] Add fake-client tests for simple answer, streaming chunks, tool-call response, usage mapping, and error classification. [source: `AGENTS.md`, design decision]
+- [x] Capture usage fields including cache hit and miss tokens. [source: `src/xhtang_harness/providers/deepseek.py`, `src/xhtang_harness/storage/sqlite.py`]
+- [x] Classify 400, 401, 402, 422, 429, 500, and 503 errors. [source: `src/xhtang_harness/providers/deepseek.py`]
+- [ ] Add fake-client tests for simple answer, streaming chunks, tool-call response, usage mapping, and error classification. [source: `tests/test_deepseek_provider.py`; payload/tool-call/usage/error coverage exists, streaming chunk test deferred]
 
 ### Phase 5: Agent Loop
 
-- [ ] Implement one-run orchestration from user prompt to final answer. [source: `doc/runtime-flow-and-reliability.md`, `doc/mvp.md`]
-- [ ] Ensure each provider turn receives full session history. [source: `.agents/skills/deepseek-api/SKILL.md`]
-- [ ] Preserve assistant `reasoning_content` and `tool_calls` when tool calls occur. [source: `.agents/skills/deepseek-api/SKILL.md`]
-- [ ] Execute tool calls, append tool result messages, and continue until final answer. [source: `doc/runtime-flow-and-reliability.md`, `doc/mvp.md`]
-- [ ] Implement bounded retry for retryable provider errors. [source: `doc/runtime-flow-and-reliability.md`]
-- [ ] Implement cooperative cancellation state that prevents new provider/tool sub-turns. [source: `doc/runtime-flow-and-reliability.md`]
-- [ ] Add scripted fake-provider tests for no-tool answer, one-tool loop, retry success, provider failure, tool failure, and cancellation. [source: `AGENTS.md`, `doc/mvp.md`]
+- [x] Implement one-run orchestration from user prompt to final answer. [source: `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/app.py`]
+- [x] Ensure each provider turn receives full session history. [source: `src/xhtang_harness/agent_loop.py`, `tests/test_agent_loop.py`]
+- [x] Preserve assistant `reasoning_content` and `tool_calls` when tool calls occur. [source: `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/storage/sqlite.py`, `tests/test_agent_loop.py`]
+- [x] Execute tool calls, append tool result messages, and continue until final answer. [source: `src/xhtang_harness/agent_loop.py`, `tests/test_agent_loop.py`]
+- [x] Implement bounded retry for retryable provider errors. [source: `src/xhtang_harness/agent_loop.py`]
+- [x] Implement cooperative cancellation state that prevents new provider/tool sub-turns. [source: `src/xhtang_harness/agent_loop.py`, `tests/test_agent_loop.py`]
+- [ ] Add scripted fake-provider tests for no-tool answer, one-tool loop, retry success, provider failure, tool failure, and cancellation. [source: `tests/test_agent_loop.py`; no-tool/tool-loop/cancellation coverage exists, retry/provider-failure/tool-failure tests deferred]
 
 ### Phase 6: CLI Integration
 
-- [ ] Replace demo-only CLI output with MVP run command while preserving `--version`. [source: `src/xhtang_harness/cli.py`, `doc/mvp.md`]
-- [ ] Add command arguments from `doc/external-interfaces.md`: prompt, `--session`, `--thinking`, `--reasoning-effort`, `--stream`, `--no-stream`, `--json`, `--state-path`, and `--debug`. [source: `doc/external-interfaces.md`]
-- [ ] Display the effective state database path in `--debug` output so parallel worktree runs can verify separation. [source: user follow-up, design decision]
-- [ ] Render line-oriented status events and final answer to stdout. [source: `doc/ux-expectations.md`]
-- [ ] Render command/config errors to stderr and return documented exit codes. [source: `doc/external-interfaces.md`, design decision]
-- [ ] Add CLI tests for parser behavior, missing key error, state-path override, and event rendering with fake app service. [source: `AGENTS.md`, `doc/external-interfaces.md`]
+- [x] Replace demo-only CLI output with MVP run command while preserving `--version`. [source: `src/xhtang_harness/cli.py`, shell validation]
+- [x] Add command arguments from `doc/external-interfaces.md`: prompt, `--session`, `--thinking`, `--reasoning-effort`, `--stream`, `--no-stream`, `--json`, `--state-path`, and `--debug`. [source: `src/xhtang_harness/cli.py`]
+- [x] Display the effective state database path in `--debug` output so parallel worktree runs can verify separation. [source: `src/xhtang_harness/cli.py`]
+- [x] Render line-oriented status events and final answer to stdout. [source: `src/xhtang_harness/cli.py`]
+- [x] Render command/config errors to stderr and return documented exit codes. [source: `src/xhtang_harness/cli.py`, shell validation]
+- [x] Add CLI tests for parser behavior, missing key error, state-path override, and event rendering with fake app service. [source: `tests/test_cli.py`]
 
 ### Phase 7: Acceptance, Docs, And Manual Validation
 
-- [ ] Update README with MVP setup, required `DEEPSEEK_API_KEY`, example command, state path, and checks. [source: `README.md`, `doc/external-interfaces.md`]
+- [x] Update README with MVP setup, required `DEEPSEEK_API_KEY`, example command, state path, and checks. [source: `README.md`]
 - [ ] Update `AGENTS.md` if implementation changes canonical commands or module-specific guidance. [source: `AGENTS.md`]
-- [ ] Run `uv run pytest`. [source: `AGENTS.md`]
-- [ ] Run `uv run ruff check .`. [source: `AGENTS.md`]
-- [ ] Run `uv run ruff format --check .`. [source: `AGENTS.md`]
-- [ ] Run `uv run mypy src`. [source: `AGENTS.md`]
+- [x] Run `uv run pytest`. [source: shell validation on 2026-05-30]
+- [x] Run `uv run ruff check .`. [source: shell validation on 2026-05-30]
+- [x] Run `uv run ruff format --check .`. [source: shell validation on 2026-05-30]
+- [x] Run `uv run mypy src`. [source: shell validation on 2026-05-30]
 - [ ] Run optional live acceptance with `DEEPSEEK_API_KEY` set: `uv run xhtang-harness --thinking enabled "Use the current time tool and answer with the result."` [source: `doc/mvp.md`, `.agents/skills/deepseek-api/SKILL.md`]
 - [ ] Run optional parallel acceptance from two different worktrees or copied checkouts and verify each uses a distinct default `.xhtang-harness/state.sqlite3`. [source: user follow-up]
 - [ ] Run optional shared-state acceptance with an explicit `--state-path` and verify runs use distinct run IDs without SQLite lock failures. [source: user follow-up]
@@ -246,4 +249,19 @@ The checkboxes below are future MVP implementation tasks, not completed by this 
 - Added parallel worktree separation recommendations covering worktree-local default state, opt-in shared state, collision-resistant run IDs, per-run artifacts, worktree-local logs, short SQLite transactions, and worktree-local temp/config paths. [source: user follow-up, `agents/2026-05-30-mvp-implementation.md`]
 - Created source and test skeleton files for app, agent loop, config, conversation, events, errors, telemetry, providers, storage, tools, and parallel-worktree tests. [source: user instruction, code changes]
 - Verified current repository checks after skeleton creation: `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src` pass. [source: shell validation]
-- Runtime behavior remains unimplemented beyond placeholder skeleton modules. [source: user instruction, code changes]
+- Started MVP implementation from this task document. [source: user instruction on 2026-05-30]
+- Implemented the MVP runtime slices for config loading, SQLite persistence, tool registry/execution, agent loop orchestration, CLI event rendering, and README usage. [source: code changes on 2026-05-30]
+- Added focused offline tests covering config precedence and worktree-local state, SQLite persistence, built-in tools, tool execution, agent-loop tool replay, cancellation, CLI rendering, and DeepSeek provider mapping. [source: tests changed on 2026-05-30]
+- Verified `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src` pass. [source: shell validation on 2026-05-30]
+- Verified missing API key behavior with `env -u DEEPSEEK_API_KEY uv run xhtang-harness "hello"` returning exit code 2 and a `config_error` message. [source: shell validation on 2026-05-30]
+- Verified `uv run xhtang-harness --version` still prints `xhtang-harness 0.1.0`. [source: shell validation on 2026-05-30]
+- Started MVP bash tool implementation. [source: user instruction on 2026-05-30]
+- Implemented built-in `bash` tool exposed through the default registry; it runs `/bin/bash -lc`, accepts optional `cwd` and `timeout_seconds`, captures exit code/stdout/stderr, trims large output, and reports timeout/startup errors as tool failures. [source: `src/xhtang_harness/tools/builtin.py`]
+- Added tests for bash tool registration, success, nonzero exit reporting, relative cwd, invalid arguments, missing cwd, timeout, and executor integration. [source: `tests/tools/test_builtin.py`, `tests/tools/test_executor.py`]
+- Verified focused bash tool tests with `uv run pytest tests/tools/test_builtin.py tests/tools/test_executor.py`. [source: shell validation on 2026-05-30]
+- Verified full checks after bash tool implementation: `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src` pass. [source: shell validation on 2026-05-30]
+- Started concrete MVP goal validation for asking the harness to write a Python file calculating the first 30 Fibonacci numbers. [source: user instruction on 2026-05-30]
+- Added a regression test proving the `bash` tool can write `fibonacci_first_30.py` and run it successfully. [source: `tests/tools/test_builtin.py`, shell validation on 2026-05-30]
+- Updated `USAGE.md` to document the Fibonacci file-writing MVP prompt, built-in tools, current CLI options, and `uv run python fibonacci_first_30.py` verification. [source: `USAGE.md`]
+- Ran live validation from `agents/tmp/2026-05-30-mvp-implementation/live-fibonacci`: `uv run --project ... xhtang-harness ...` created `fibonacci_first_30.py`, ran it through the harness bash tool, and completed the run. [source: shell validation on 2026-05-30]
+- Verified the generated Fibonacci script with `uv run python agents/tmp/2026-05-30-mvp-implementation/live-fibonacci/fibonacci_first_30.py`; it printed 30 values ending in `514229`. [source: shell validation on 2026-05-30]

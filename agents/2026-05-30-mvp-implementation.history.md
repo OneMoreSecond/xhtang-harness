@@ -67,3 +67,119 @@ Validated the skeleton.
 Changes recorded:
 - Ran `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src`.
 - Updated task results to state the checks pass after skeleton creation.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:39:33
+
+Started MVP implementation from the existing plan.
+
+Recent human instructions:
+- Start MVP implementation based on `agents/2026-05-30-mvp-implementation.md`.
+- Commit and push when finished.
+
+Changes recorded:
+- Updated the current task constraints to supersede the earlier planning-only and skeleton-only scope.
+- Recorded the implementation start in the Results section.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:47:01
+
+Recorded MVP implementation completion details.
+
+Recent human instructions:
+- Commit and push when finished.
+
+Changes recorded:
+- Updated completed Todo items for config, storage, tools, agent loop, CLI, README, and validation.
+- Added Results entries for implemented runtime slices, offline tests, local checks, missing-key validation, and version validation.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:48:32
+
+Removed outdated planning-only wording from the Todo introduction.
+
+Changes recorded:
+- Updated the Todo introduction to describe current branch implementation status.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:50:41
+
+Clarified partial MVP checklist items.
+
+Changes recorded:
+- Avoided overclaiming deferred log, artifact, session-list, streaming-provider, retry-failure-test, and artifact-directory work.
+- Added a config test for invalid reasoning effort.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:55:01
+
+Started MVP bash tool implementation.
+
+Recent human instructions:
+- Implement a bash tool in MVP.
+
+Changes recorded:
+- Added a design decision for a bounded local `bash` tool.
+- Added a Todo item for command, cwd, timeout, exit-code, stdout, and stderr handling.
+- Added a Results entry recording implementation start.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:56:22
+
+Recorded bash tool implementation details.
+
+Changes recorded:
+- Marked the bash tool Todo item complete.
+- Added README usage and built-in tool descriptions.
+- Added Results entries for implementation behavior and focused tool-test validation.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:57:08
+
+Recorded final bash tool validation.
+
+Changes recorded:
+- Added Results entry for full pytest, ruff, format-check, and mypy validation after bash tool implementation.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:59:41
+
+Started concrete MVP file-writing goal validation.
+
+Recent human instructions:
+- MVP goal: ask the harness to write a `.py` file calculating first 30 Fibonacci numbers.
+- The harness should be able to write such file.
+- Update `USAGE.md` if needed.
+
+Changes recorded:
+- Updated outdated dependency wording in the task document.
+- Added a design decision for the concrete Fibonacci file-writing MVP goal.
+- Added a Results entry recording validation start.
+
+---
+
+agent: Codex
+time: 2026-05-30 13:01:53
+
+Recorded concrete Fibonacci MVP validation.
+
+Changes recorded:
+- Added a regression test for writing and running `fibonacci_first_30.py` through the bash tool.
+- Replaced stale `USAGE.md` demo content with the current Fibonacci MVP prompt, built-in tools, CLI options, and verification command.
+- Recorded live harness validation in an isolated `agents/tmp/2026-05-30-mvp-implementation/live-fibonacci` directory.
