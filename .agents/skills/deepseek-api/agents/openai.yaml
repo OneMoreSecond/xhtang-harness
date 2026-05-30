@@ -1,0 +1,4 @@
+interface:
+  display_name: "DeepSeek API"
+  short_description: "Call DeepSeek V4 in agent harnesses"
+  default_prompt: "Use $deepseek-api to design a DeepSeek V4 Pro agent API integration."
