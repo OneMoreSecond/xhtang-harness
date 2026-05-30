@@ -12,10 +12,11 @@ directly and do not create a virtual environment.
 
 ## Setup
 
-Install the package into the user Python environment:
+Local demo commands do not require installing the package into the user Python
+environment.
 
 ```bash
-python3.12 -m pip install --user -e .
+./bin/xhtang-harness "Show a usable agent harness demo"
 ```
 
 Install development tools when they are not already available:
@@ -32,16 +33,16 @@ uv lock --python python3.12 --no-python-downloads
 
 ## Demo
 
-Run the CLI demo:
+Run the worktree-local CLI demo:
 
 ```bash
-xhtang-harness "Show a usable agent harness demo"
+./bin/xhtang-harness "Show a usable agent harness demo"
 ```
 
-Or run it as a module:
+Or run it as a module from the checkout:
 
 ```bash
-python3.12 -m xhtang_harness "Show a usable agent harness demo"
+PYTHONPATH=src python3.12 -m xhtang_harness "Show a usable agent harness demo"
 ```
 
 ## Checks

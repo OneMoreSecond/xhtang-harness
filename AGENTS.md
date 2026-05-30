@@ -174,11 +174,11 @@ python3.12 -m ruff format --check .
 python3.12 -m mypy src
 ```
 
-Install the project into the user Python environment only when local execution
-needs package entry points:
+Run the local CLI from the current checkout or git worktree without installing
+the project into the user Python environment:
 
 ```bash
-python3.12 -m pip install --user -e .
+./bin/xhtang-harness "Show a usable agent harness demo"
 ```
 
 Install missing development tools into the user Python environment only after
