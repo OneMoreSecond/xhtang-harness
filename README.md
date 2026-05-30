@@ -54,6 +54,25 @@ Built-in tools exposed to the model:
 - `bash`: runs a local `/bin/bash -lc` command with captured stdout, stderr,
   exit code, and a bounded timeout.
 
+## Directory Structure
+
+| Path | Purpose | Source |
+| --- | --- | --- |
+| `.agents/skills/` | Local agent skills used while developing this repository. | `find . -maxdepth 3 -type d` |
+| `agents/` | Task notes, progress records, and implementation history for agent work. | `find . -maxdepth 3 -type f` |
+| `doc/` | Design notes for external interfaces, module responsibilities, MVP scope, storage, runtime reliability, and UX expectations. | `find . -maxdepth 3 -type f` |
+| `examples/` | Small example outputs, currently including a Fibonacci script example. | `find examples -maxdepth 2 -type f` |
+| `src/xhtang_harness/` | Application package code for the CLI, agent loop, config, events, telemetry, providers, storage, and tools. | `find . -maxdepth 3 -type f` |
+| `tests/` | Test coverage for the CLI, app flow, agent loop, config, events, provider layer, storage, and tools. | `find . -maxdepth 3 -type f` |
+| `README.md` | Project overview, setup, run commands, directory summary, and checks. | `README.md` |
+| `USAGE.md` | End-user usage guide for running the CLI. | `USAGE.md` |
+| `dev-env-snapshot.md` | Captured development environment snapshot. | `dev-env-snapshot.md` |
+| `pyproject.toml` | Python package metadata, script entry point, dependencies, and tool configuration. | `pyproject.toml` |
+| `uv.lock` | uv dependency lockfile. | `uv.lock` |
+
+Generated local directories such as `.venv/`, caches, and runtime state are not
+part of the source layout. [source: `.gitignore`, `git status --short --ignored`]
+
 ## Checks
 
 ```bash
