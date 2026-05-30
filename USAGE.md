@@ -23,10 +23,10 @@ Run the demo with the default goal:
 uv run xhtang-harness
 ```
 
-Run it with your own goal:
+Run it with a coding task:
 
 ```bash
-uv run xhtang-harness "Show a usable agent harness demo"
+uv run xhtang-harness "Write a Python script calculating the first N Fibonacci numbers"
 ```
 
 Expected output:
@@ -34,7 +34,7 @@ Expected output:
 ```text
 xhtang-harness demo
 version: 0.1.0
-goal: Show a usable agent harness demo
+goal: Write a Python script calculating the first N Fibonacci numbers
 status: ready
 ```
 
@@ -59,6 +59,6 @@ If `goal` is omitted, the command uses `Show a usable agent harness demo`.
 | --- | --- |
 | `uv` is not found | Install `uv`, then run `uv sync` again from the repository root. |
 | Python version error | Run `uv sync` from the repository root so uv can use the project Python version. |
-| Empty goal error | Pass a non-empty goal, for example `uv run xhtang-harness "Test goal"`. |
+| Empty goal error | Pass a non-empty goal, for example `uv run xhtang-harness "Write a Python script calculating the first N Fibonacci numbers"`. |
 | Command is not found | Run it through uv: `uv run xhtang-harness`. |
 | Output only says `status: ready` | That is the expected demo output for this version. |
