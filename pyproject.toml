@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "Small Python foundation for an LLM agent harness demo."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "openai>=2.38.0",
+]
 
 [project.scripts]
 xhtang-harness = "xhtang_harness.cli:main"
