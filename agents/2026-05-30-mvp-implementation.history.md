@@ -154,3 +154,32 @@ Recorded final bash tool validation.
 
 Changes recorded:
 - Added Results entry for full pytest, ruff, format-check, and mypy validation after bash tool implementation.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:59:41
+
+Started concrete MVP file-writing goal validation.
+
+Recent human instructions:
+- MVP goal: ask the harness to write a `.py` file calculating first 30 Fibonacci numbers.
+- The harness should be able to write such file.
+- Update `USAGE.md` if needed.
+
+Changes recorded:
+- Updated outdated dependency wording in the task document.
+- Added a design decision for the concrete Fibonacci file-writing MVP goal.
+- Added a Results entry recording validation start.
+
+---
+
+agent: Codex
+time: 2026-05-30 13:01:53
+
+Recorded concrete Fibonacci MVP validation.
+
+Changes recorded:
+- Added a regression test for writing and running `fibonacci_first_30.py` through the bash tool.
+- Replaced stale `USAGE.md` demo content with the current Fibonacci MVP prompt, built-in tools, CLI options, and verification command.
+- Recorded live harness validation in an isolated `agents/tmp/2026-05-30-mvp-implementation/live-fibonacci` directory.

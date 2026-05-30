@@ -89,3 +89,29 @@ def test_bash_tool_reports_timeout(tmp_path: Path) -> None:
 
     with pytest.raises(ToolRunError, match="timed out"):
         tool.execute({"command": "sleep 1", "timeout_seconds": 0.1})
+
+
+def test_bash_tool_can_write_and_run_fibonacci_python_file(tmp_path: Path) -> None:
+    tool = bash_tool(cwd=tmp_path)
+    command = """cat > fibonacci_first_30.py <<'PY'
+def first_n_fibonacci(n: int) -> list[int]:
+    values: list[int] = []
+    current, next_value = 0, 1
+    for _ in range(n):
+        values.append(current)
+        current, next_value = next_value, current + next_value
+    return values
+
+
+if __name__ == "__main__":
+    print(first_n_fibonacci(30))
+PY
+python fibonacci_first_30.py
+"""
+
+    result = tool.execute({"command": command})
+
+    created_file = tmp_path / "fibonacci_first_30.py"
+    assert created_file.exists()
+    assert "514229" in result
+    assert '"exit_code": 0' in result
