@@ -76,7 +76,7 @@ writes validated skills under `.skills/` when a reusable workflow is found.
 
 | Option | Description |
 | --- | --- |
-| `goal` | Required initial prompt describing what you want the harness to do. Blank prompts are rejected. |
+| `goal` | Initial prompt describing what you want the harness to do. If omitted, the CLI asks for it before beginning. Blank prompts are rejected. |
 | `--session <id>` | Continue or create a specific local session. |
 | `--thinking enabled\|disabled` | Select DeepSeek thinking mode. |
 | `--reasoning-effort high\|max` | Select reasoning effort when thinking is enabled. |

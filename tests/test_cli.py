@@ -6,8 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from xhtang_harness import __version__
-from xhtang_harness.cli import DEFAULT_GOAL, main, render_demo
+from xhtang_harness.cli import main
 from xhtang_harness.config import HarnessConfig
 from xhtang_harness.events import HarnessEvent
 
@@ -22,24 +21,28 @@ class NonInteractiveInput(io.StringIO):
         return False
 
 
-def test_render_demo_uses_default_goal() -> None:
-    output = render_demo(DEFAULT_GOAL)
+def test_main_prompts_for_missing_initial_goal(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen_config: HarnessConfig | None = None
 
-    assert "xhtang-harness demo" in output
-    assert f"version: {__version__}" in output
-    assert f"goal: {DEFAULT_GOAL}" in output
-    assert "status: ready" in output
+    def fake_run(config: HarnessConfig) -> Iterator[HarnessEvent]:
+        nonlocal seen_config
+        seen_config = config
+        yield HarnessEvent("run_started", {"run_id": "run_1", "session_id": "ses_1"})
+        yield HarnessEvent("run_completed", {"run_id": "run_1"})
 
+    monkeypatch.setattr("xhtang_harness.cli.run_harness", fake_run)
+    monkeypatch.setattr(sys, "stdin", InteractiveInput("Prompt from input\n"))
 
-def test_render_demo_trims_goal() -> None:
-    output = render_demo("  Build the harness  ")
+    exit_code = main([])
 
-    assert "goal: Build the harness" in output
-
-
-def test_render_demo_rejects_blank_goal() -> None:
-    with pytest.raises(ValueError, match="goal must not be empty"):
-        render_demo(" ")
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "initial goal:" in captured.err
+    assert seen_config is not None
+    assert seen_config.prompt == "Prompt from input"
 
 
 def test_main_renders_harness_events(
@@ -179,7 +182,7 @@ def test_main_skips_additional_prompt_when_stdin_is_not_interactive(
     assert "additional prompt" not in captured.err
 
 
-def test_main_renders_config_errors(
+def test_main_rejects_blank_initial_goal(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -189,6 +192,21 @@ def test_main_renders_config_errors(
 
     captured = capsys.readouterr()
     assert exit_code == 2
+    assert "config_error: prompt must not be empty" in captured.err
+
+
+def test_main_rejects_blank_prompt_after_missing_goal(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.setattr(sys, "stdin", InteractiveInput("   \n"))
+
+    exit_code = main([])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "initial goal:" in captured.err
     assert "config_error: prompt must not be empty" in captured.err
 
 

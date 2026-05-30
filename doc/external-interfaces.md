@@ -5,8 +5,10 @@
 | Label | Source |
 | --- | --- |
 | Review comment | User review comment on `agents/2026-05-30-init-design.md` |
+| User update | User instruction on 2026-05-30 to ask for the initial goal when omitted |
 | Greenfield | `agents/2026-05-30-greenfield.md` |
-| README | `README.md` |
+| Usage | `USAGE.md` |
+| Contribution | `CONTRIBUTION.md` |
 | UX doc | `doc/ux-expectations.md` |
 | Modules doc | `doc/module-responsibilities.md` |
 | Storage doc | `doc/persistent-data-storage.md` |
@@ -27,7 +29,7 @@
 
 | User state | Argument | Required | Consumer | Source |
 | --- | --- | --- | --- | --- |
-| Prompt text | Positional `goal` or future `prompt` argument | Yes for non-interactive run | `xhtang_harness.cli` | [source: Greenfield, Design decision] |
+| Prompt text | Positional `goal` argument or prompted stdin input when omitted | No for interactive use; required before run execution | `xhtang_harness.cli` | [source: Greenfield, User update, Design decision] |
 | Session selector | `--session <id-or-name>` | No | `xhtang_harness.cli`, `xhtang_harness.app` | [source: Storage doc, Design decision] |
 | Thinking mode | `--thinking enabled|disabled` | No | `xhtang_harness.providers.deepseek` | [source: DeepSeek skill, Design decision] |
 | Reasoning effort | `--reasoning-effort high|max` | No | `xhtang_harness.providers.deepseek` | [source: DeepSeek skill, Design decision] |

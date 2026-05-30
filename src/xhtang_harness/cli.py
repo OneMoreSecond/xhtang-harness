@@ -13,8 +13,6 @@ from xhtang_harness.app import run_harness
 from xhtang_harness.config import ConfigOverrides, load_config
 from xhtang_harness.errors import HarnessError
 
-DEFAULT_GOAL = "Show a usable agent harness demo"
-
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -24,8 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "goal",
         nargs="?",
-        default=DEFAULT_GOAL,
-        help="Prompt to pass to the harness.",
+        help="Initial prompt to pass to the harness. Omit to be prompted.",
     )
     parser.add_argument("--session", help="Session id to continue or create.")
     parser.add_argument(
@@ -86,25 +83,10 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def render_demo(goal: str) -> str:
-    normalized_goal = goal.strip()
-    if not normalized_goal:
-        raise ValueError("goal must not be empty")
-
-    return "\n".join(
-        [
-            "xhtang-harness demo",
-            f"version: {__version__}",
-            f"goal: {normalized_goal}",
-            "status: ready",
-        ]
-    )
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     namespace = parser.parse_args(argv)
-    goal = cast(str, namespace.goal)
+    goal = cast(str | None, namespace.goal)
     overrides = ConfigOverrides(
         session=cast(str | None, namespace.session),
         thinking=cast(str | None, namespace.thinking),
@@ -118,6 +100,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     try:
+        if goal is None:
+            goal = _read_initial_goal()
         config = load_config(prompt=goal, overrides=overrides)
         if config.debug and not config.json_output:
             print(f"state_path: {config.state_path}")
@@ -225,3 +209,8 @@ def _read_additional_prompt() -> str | None:
     if not prompt:
         return None
     return prompt
+
+
+def _read_initial_goal() -> str:
+    print("initial goal: ", end="", file=sys.stderr, flush=True)
+    return sys.stdin.readline().strip()
