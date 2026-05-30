@@ -67,3 +67,53 @@ Validated the skeleton.
 Changes recorded:
 - Ran `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src`.
 - Updated task results to state the checks pass after skeleton creation.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:39:33
+
+Started MVP implementation from the existing plan.
+
+Recent human instructions:
+- Start MVP implementation based on `agents/2026-05-30-mvp-implementation.md`.
+- Commit and push when finished.
+
+Changes recorded:
+- Updated the current task constraints to supersede the earlier planning-only and skeleton-only scope.
+- Recorded the implementation start in the Results section.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:47:01
+
+Recorded MVP implementation completion details.
+
+Recent human instructions:
+- Commit and push when finished.
+
+Changes recorded:
+- Updated completed Todo items for config, storage, tools, agent loop, CLI, README, and validation.
+- Added Results entries for implemented runtime slices, offline tests, local checks, missing-key validation, and version validation.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:48:32
+
+Removed outdated planning-only wording from the Todo introduction.
+
+Changes recorded:
+- Updated the Todo introduction to describe current branch implementation status.
+
+---
+
+agent: Codex
+time: 2026-05-30 12:50:41
+
+Clarified partial MVP checklist items.
+
+Changes recorded:
+- Avoided overclaiming deferred log, artifact, session-list, streaming-provider, retry-failure-test, and artifact-directory work.
+- Added a config test for invalid reasoning effort.
