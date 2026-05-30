@@ -33,11 +33,12 @@ plan for this feature based on the MVP plan.
 - External-interface precedent already exists for command arguments, environment variables, disk config, local output files, and worktree-local defaults. Skill learning should follow the same precedence and path rules. [source: `doc/external-interfaces.md`]
 - DeepSeek guidance supports JSON output and recommends clear JSON instructions, a concrete schema, enough max tokens, and handling empty or malformed JSON responses. [source: `.agents/skills/deepseek-api/SKILL.md`]
 - Skill creation guidance requires a `SKILL.md` with YAML frontmatter containing only `name` and `description`, concise imperative body instructions, lowercase hyphen skill names, and validation of generated skills. [source: `.codex/skills/.system/skill-creator/SKILL.md`]
-- Current source has a DeepSeek provider foundation, while `app.py`, `agent_loop.py`, `config.py`, and `storage/sqlite.py` are still skeletons. This feature should be planned after those MVP slices have usable interfaces. [source: `src/xhtang_harness/providers/deepseek.py`, `src/xhtang_harness/app.py`, `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/config.py`, `src/xhtang_harness/storage/sqlite.py`]
+- Current source has the MVP app, agent loop, config, SQLite storage, DeepSeek provider, and built-in `bash` tool needed to implement the first skill-learning slice. [source: `src/xhtang_harness/app.py`, `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/config.py`, `src/xhtang_harness/storage/sqlite.py`, `src/xhtang_harness/providers/deepseek.py`, `src/xhtang_harness/tools/builtin.py`]
+- Latest acceptance requires two concrete behaviors: stdout must show the agent is thinking about whether to create a skill, and manually created `.skills/<skill-name>/SKILL.md` content must be available when the prompt includes that skill description. [source: latest user instruction]
 
 ## Constraint and Assumption
 
-- This task is a planning task only; it does not implement the feature. [source: user request]
+- This task is now an implementation task for a narrow MVP skill-learning slice; the original brief requested planning, but the latest user instruction supplied concrete acceptance criteria. [source: original task brief, latest user instruction]
 - The original content above the separator is preserved as the task brief. [source: `AGENTS.md`, original task brief]
 - The phrase "send another prompt asking the agent" means an internal post-run LLM call, not a second interactive question to the human user. [source: original task brief, design assumption]
 - The requested output location `.skills/` means a repository-local `.skills/` directory under the current working tree unless the user explicitly configures another path. [source: original task brief, design assumption]
@@ -58,13 +59,14 @@ plan for this feature based on the MVP plan.
 ## Decisions
 
 - Implement this as an optional post-MVP slice after the main MVP app, agent loop, config, storage, and event interfaces exist. [source: `agents/2026-05-30-mvp-implementation.md`, design decision]
-- Add a small `xhtang_harness.skills` package instead of placing this logic inside the DeepSeek provider, tool executor, or CLI renderer. [source: `doc/module-responsibilities.md`, design decision]
+- Add a small `xhtang_harness.skills` module instead of placing this logic inside the DeepSeek provider, tool executor, or CLI renderer. [source: `doc/module-responsibilities.md`, implementation]
 - Add three skill-learning modes: `off`, `suggest`, and `auto`. `off` skips the feature, `suggest` emits and persists a proposal without writing skill files, and `auto` writes validated skill files when the model returns `should_create: true`. [source: original task brief, design decision]
 - Keep `off` as the initial default so users do not get unexpected generated files; document `auto` as the mode that satisfies the requested behavior. [source: design decision]
 - Use a structured JSON response contract for the reflection call and validate it before any file write. [source: `.agents/skills/deepseek-api/SKILL.md`, design decision]
-- In the first implementation, allow automatic writing of `SKILL.md`, optional `agents/openai.yaml`, and optional markdown references only. Defer executable scripts and binary assets to manual review. [source: `.codex/skills/.system/skill-creator/SKILL.md`, design decision]
-- Never overwrite an existing skill folder by default. On name collision, emit a conflict event and skip writing unless a later explicit overwrite option is added. [source: design decision]
-- Write skill files atomically through a temporary directory under `.xhtang-harness/tmp/<run-id>/skill/` and then rename into `.skills/<skill-name>/`. [source: `agents/2026-05-30-mvp-implementation.md`, design decision]
+- In the first implementation, allow automatic writing of `SKILL.md` and optional markdown references only. Defer `agents/openai.yaml`, executable scripts, and binary assets to a later reviewed slice. [source: `.codex/skills/.system/skill-creator/SKILL.md`, implementation]
+- Never overwrite an existing skill folder by default. On name collision, emit `skill_learning_failed` and skip writing unless a later explicit overwrite option is added. [source: implementation]
+- Write skill files through a temporary directory under `.xhtang-harness/tmp/skills/` and then rename into `.skills/<skill-name>/`. [source: `src/xhtang_harness/skills.py`]
+- Load matching local skills before provider calls by adding a non-persisted system message when the user prompt includes a local skill name or exact description. [source: latest user instruction, `src/xhtang_harness/skills.py`, `src/xhtang_harness/agent_loop.py`]
 - Store skill-reflection lifecycle and proposal data as events for the first version instead of adding a dedicated `skill_reflections` table. [source: `doc/persistent-data-storage.md`, design decision]
 
 ## Design
@@ -81,18 +83,15 @@ plan for this feature based on the MVP plan.
 | 6 | If the response says `should_create: true`, the writer validates name, paths, frontmatter, and content limits. | [source: `.codex/skills/.system/skill-creator/SKILL.md`, design decision] |
 | 7 | In `suggest` mode, the proposal is persisted and shown without file writes. In `auto` mode, validated files are written under `.skills/<skill-name>/`. | [source: original task brief, design decision] |
 
-### Proposed Module Shape
+### Implemented Module Shape
 
 | Module | Responsibility | Source |
 | --- | --- | --- |
-| `xhtang_harness.skills.models` | Dataclasses for `SkillLearningMode`, `SkillProposal`, `SkillFile`, and `SkillWriteResult`. | [source: design decision] |
-| `xhtang_harness.skills.context` | Build the redacted task summary used by the reflection prompt. | [source: `doc/persistent-data-storage.md`, design decision] |
-| `xhtang_harness.skills.reflector` | Create the JSON prompt, call the provider, parse the model response, and return a proposal or skip reason. | [source: original task brief, `.agents/skills/deepseek-api/SKILL.md`] |
-| `xhtang_harness.skills.validator` | Enforce skill-name, frontmatter, allowed file paths, content-size, and no-secret checks. | [source: `.codex/skills/.system/skill-creator/SKILL.md`, `doc/external-interfaces.md`] |
-| `xhtang_harness.skills.writer` | Write validated skill files atomically under `.skills/` and report conflicts or write failures. | [source: original task brief, design decision] |
-| `xhtang_harness.app` | Invoke the post-run hook after a successful run when skill learning is enabled. | [source: `doc/module-responsibilities.md`, design decision] |
-| `xhtang_harness.config` | Load skill-learning mode and skill path from command args, environment variables, disk config, and defaults. | [source: `doc/external-interfaces.md`, design decision] |
-| `xhtang_harness.events` | Add skill-learning lifecycle events for CLI rendering and persistence. | [source: `doc/runtime-flow-and-reliability.md`, design decision] |
+| `xhtang_harness.skills` | Dataclasses, local skill matching, reflection prompt/options, JSON parsing, validation, and skill writing for the MVP slice. | [source: `src/xhtang_harness/skills.py`] |
+| `xhtang_harness.agent_loop` | Loads matching skill context before provider calls and runs the post-run reflection hook after successful completion. | [source: `src/xhtang_harness/agent_loop.py`] |
+| `xhtang_harness.config` | Loads skill-learning mode and skill path from command args, environment variables, disk config, and defaults. | [source: `src/xhtang_harness/config.py`] |
+| `xhtang_harness.cli` | Parses skill flags and renders compact skill-learning stdout events. | [source: `src/xhtang_harness/cli.py`] |
+| `xhtang_harness.events` | Includes skill-context and skill-learning event types for CLI rendering and persistence. | [source: `src/xhtang_harness/events.py`, `src/xhtang_harness/storage/sqlite.py`] |
 
 ### External Interfaces
 
@@ -141,11 +140,12 @@ Validation rules: [source: `.codex/skills/.system/skill-creator/SKILL.md`, desig
 | Event | Payload minimum | Source |
 | --- | --- | --- |
 | `skill_learning_started` | `run_id`, `mode`, `skills_path` | [source: design decision] |
+| `skill_context_loaded` | `run_id`, `skills_path`, `skill_count` | [source: latest user instruction, implementation] |
 | `skill_learning_skipped` | `run_id`, `reason` | [source: design decision] |
 | `skill_proposed` | `run_id`, `skill_name`, `reason`, `mode` | [source: design decision] |
 | `skill_write_started` | `run_id`, `skill_name`, `target_path` | [source: design decision] |
 | `skill_written` | `run_id`, `skill_name`, `target_path`, `file_count` | [source: design decision] |
-| `skill_write_failed` | `run_id`, `skill_name`, `error_class`, `message` | [source: design decision] |
+| `skill_learning_failed` | `run_id`, `error_class`, `message` | [source: implementation] |
 
 ### Parallel Worktree Behavior
 
@@ -153,56 +153,58 @@ The default `.skills/` path should be resolved from the current worktree so simu
 
 ## Todo
 
-The checkboxes below are implementation tasks for the create-skill feature, not completed by this planning task. [source: user request]
+The checkboxes below track the implemented MVP slice and remaining follow-up work. [source: latest user instruction]
 
 ### Phase 0: MVP Dependency Gate
 
-- [ ] Finish or stabilize the MVP app service, agent loop, config loader, storage gateway, and event interfaces that this feature depends on. [source: `agents/2026-05-30-mvp-implementation.md`]
-- [ ] Confirm the provider adapter can make a second JSON-output call without tools and without recursively invoking skill learning. [source: `.agents/skills/deepseek-api/SKILL.md`, design decision]
+- [x] Finish or stabilize the MVP app service, agent loop, config loader, storage gateway, and event interfaces that this feature depends on. [source: `src/xhtang_harness/app.py`, `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/config.py`, `src/xhtang_harness/storage/sqlite.py`]
+- [x] Confirm the provider adapter can make a second JSON-output call without tools and without recursively invoking skill learning. [source: `src/xhtang_harness/agent_loop.py`, focused tests]
 
 ### Phase 1: Interfaces And Config
 
-- [ ] Add `--skill-learning off|suggest|auto` and `--skills-path <path>` to the CLI parser. [source: design decision]
-- [ ] Add `XHTANG_HARNESS_SKILL_LEARNING` and `XHTANG_HARNESS_SKILLS_PATH` to config loading. [source: `doc/external-interfaces.md`, design decision]
-- [ ] Add optional `.xhtang-harness/config.toml` keys for `skill_learning` and `skills_path`. [source: `doc/external-interfaces.md`, design decision]
-- [ ] Validate mode values and reject empty or unsafe skill output paths before starting a run. [source: `doc/runtime-flow-and-reliability.md`, design decision]
+- [x] Add `--skill-learning off|suggest|auto` and `--skills-path <path>` to the CLI parser. [source: `src/xhtang_harness/cli.py`]
+- [x] Add `XHTANG_HARNESS_SKILL_LEARNING` and `XHTANG_HARNESS_SKILLS_PATH` to config loading. [source: `src/xhtang_harness/config.py`]
+- [x] Add optional `.xhtang-harness/config.toml` keys for `skill_learning` and `skills_path`. [source: `src/xhtang_harness/config.py`]
+- [x] Validate mode values before starting a run. [source: `src/xhtang_harness/config.py`, `tests/test_config.py`]
 
 ### Phase 2: Skill Domain And Prompting
 
-- [ ] Add `xhtang_harness.skills.models` with typed proposal and write-result models. [source: design decision]
-- [ ] Add `xhtang_harness.skills.context` to build a redacted run summary for reflection. [source: `doc/persistent-data-storage.md`, design decision]
-- [ ] Add `xhtang_harness.skills.reflector` with a JSON-output prompt and parser. [source: original task brief, `.agents/skills/deepseek-api/SKILL.md`]
+- [x] Add typed proposal and write-result models in `xhtang_harness.skills`. [source: `src/xhtang_harness/skills.py`]
+- [x] Add a bounded run summary for reflection. [source: `src/xhtang_harness/skills.py`]
+- [x] Add JSON-output reflection prompt/options and parser. [source: `src/xhtang_harness/skills.py`]
 - [ ] Add tests for skip decisions, create decisions, malformed JSON, empty JSON content, and proposal redaction. [source: `.agents/skills/deepseek-api/SKILL.md`, `AGENTS.md`]
 
 ### Phase 3: Validation And Writing
 
-- [ ] Add `xhtang_harness.skills.validator` for name, frontmatter, allowed paths, and secret-pattern checks. [source: `.codex/skills/.system/skill-creator/SKILL.md`, design decision]
-- [ ] Add `xhtang_harness.skills.writer` to write through a temporary directory and atomically rename into `.skills/<skill-name>/`. [source: original task brief, design decision]
-- [ ] Add conflict handling that skips existing skill folders by default. [source: design decision]
+- [x] Add validation for skill name and allowed reference paths. [source: `src/xhtang_harness/skills.py`]
+- [x] Add writer to write through a temporary directory and rename into `.skills/<skill-name>/`. [source: `src/xhtang_harness/skills.py`]
+- [x] Add conflict handling that skips existing skill folders by default. [source: `src/xhtang_harness/skills.py`]
 - [ ] Add tests for successful write, existing-skill conflict, path traversal rejection, invalid frontmatter, and temporary-directory cleanup. [source: `AGENTS.md`, design decision]
 
 ### Phase 4: App, Events, And Storage Integration
 
-- [ ] Invoke skill learning from `xhtang_harness.app` after a successful `run_completed` state. [source: `doc/module-responsibilities.md`, design decision]
-- [ ] Skip skill learning for failed, cancelled, and skill-reflection internal runs. [source: `doc/runtime-flow-and-reliability.md`, design decision]
-- [ ] Add skill-learning lifecycle events to `xhtang_harness.events`. [source: `doc/runtime-flow-and-reliability.md`, design decision]
-- [ ] Persist proposal and write-result payloads as events. [source: `doc/persistent-data-storage.md`, design decision]
-- [ ] Render compact CLI messages for skipped, proposed, written, and failed skill-learning outcomes. [source: `doc/ux-expectations.md`, design decision]
+- [x] Invoke skill learning after a successful `run_completed` state. [source: `src/xhtang_harness/agent_loop.py`]
+- [x] Skip skill learning for failed, cancelled, and skill-reflection internal runs. [source: `src/xhtang_harness/agent_loop.py`]
+- [x] Add skill-learning lifecycle events to `xhtang_harness.events`. [source: `src/xhtang_harness/events.py`]
+- [x] Persist proposal and write-result payloads as events. [source: `src/xhtang_harness/storage/sqlite.py`, `src/xhtang_harness/agent_loop.py`]
+- [x] Render compact CLI messages for skipped, proposed, written, and failed skill-learning outcomes. [source: `src/xhtang_harness/cli.py`]
 
 ### Phase 5: Acceptance And Documentation
 
-- [ ] Update `USAGE.md` with skill-learning modes, `.skills/` output, and troubleshooting. [source: `USAGE.md`, design decision]
-- [ ] Update `doc/external-interfaces.md` with the new command arguments, environment variables, disk config keys, and output files. [source: `doc/external-interfaces.md`]
+- [x] Update `USAGE.md` with skill-learning modes, `.skills/` output, and troubleshooting. [source: `USAGE.md`]
+- [x] Update `doc/external-interfaces.md` with the new command arguments, environment variables, disk config keys, and output files. [source: `doc/external-interfaces.md`]
 - [ ] Add or update MVP implementation documentation to place this feature after the core MVP loop. [source: `agents/2026-05-30-mvp-implementation.md`]
-- [ ] Run `uv run pytest`. [source: `AGENTS.md`]
-- [ ] Run `uv run ruff check .`. [source: `AGENTS.md`]
-- [ ] Run `uv run ruff format --check .`. [source: `AGENTS.md`]
-- [ ] Run `uv run mypy src`. [source: `AGENTS.md`]
-- [ ] Manually test `--skill-learning suggest` with a fake or recorded provider response and verify no `.skills/` files are written. [source: design decision]
-- [ ] Manually test `--skill-learning auto` and verify `.skills/<skill-name>/SKILL.md` is created only after validation passes. [source: original task brief, design decision]
+- [x] Run `uv run pytest`. [source: command output]
+- [x] Run `uv run ruff check .`. [source: command output]
+- [ ] Run `uv run ruff format --check .`. [source: command output]
+- [x] Run `uv run mypy src`. [source: command output]
+- [x] Manually test `--skill-learning suggest` with a real provider response and verify no `.skills/` files are written by suggest mode. [source: live acceptance command output]
+- [x] Test `--skill-learning auto` and verify `.skills/<skill-name>/SKILL.md` is created only after validation passes. [source: `tests/test_agent_loop.py`]
 
 ## Results
 
-Created this implementation plan for the create-skill feature at `agents/2026-05-30-create-skill.md`. No runtime code was changed by this planning task. [source: user request, task work]
+Implemented the MVP create-skill slice. The harness now loads matching local `.skills/<skill-name>/SKILL.md` bodies into provider context when the prompt contains the skill name or exact description, supports `--skill-learning off|suggest|auto`, asks a JSON reflection prompt after successful runs when enabled, renders `skill_learning_started: thinking whether to create a skill` on stdout, and writes validated `SKILL.md` files in `auto` mode. [source: latest user instruction, `src/xhtang_harness/skills.py`, `src/xhtang_harness/agent_loop.py`, `src/xhtang_harness/cli.py`]
 
-Validation results: `uv run pytest` passed with 44 tests, `uv run ruff check .` passed, and `uv run mypy src` passed. `uv run ruff format --check .` failed because tracked baseline file `examples/fib30.py` would be reformatted; this planning task did not touch that file. Local validation caches were removed after the run. [source: command output]
+Usage example: `uv run xhtang-harness --skill-learning suggest "Use when the prompt mentions the cerulean abacus checklist. What secret is hidden in the matching local skill?"`. The live acceptance run used a manually created `.skills/cerulean-abacus/SKILL.md` with description `Use when the prompt mentions the cerulean abacus checklist.` and body secret `hidden-secret: lava-mint-7319`; stdout included `skill_context_loaded: 1 local skill(s)`, an answer containing `lava-mint-7319`, and `skill_learning_started: thinking whether to create a skill`. [source: live acceptance command output]
+
+Validation results: `uv run pytest` passed with 50 tests, `uv run ruff check .` passed, and `uv run mypy src` passed. `uv run ruff format --check .` still fails only because existing tracked baseline file `examples/fib30.py` would be reformatted; this implementation did not touch that unrelated file. [source: command output]

@@ -16,6 +16,14 @@ from xhtang_harness.providers.deepseek import (
     DeepSeekToolCall,
     DeepSeekUsage,
 )
+from xhtang_harness.skills import (
+    SkillError,
+    build_reflection_messages,
+    matching_skill_context,
+    parse_skill_decision,
+    reflection_options,
+    write_skill,
+)
 from xhtang_harness.storage.sqlite import SQLiteStore
 from xhtang_harness.tools.executor import ToolExecutor
 from xhtang_harness.tools.registry import ToolRegistry
@@ -80,12 +88,29 @@ class AgentLoop:
                 {"message_id": user_message.id, "role": user_message.role},
             ),
         )
+        skill_context, skill_count = matching_skill_context(
+            config.prompt,
+            config.skills_path,
+        )
+        if skill_context is not None:
+            yield from self._emit(
+                run.id,
+                HarnessEvent(
+                    "skill_context_loaded",
+                    {
+                        "run_id": run.id,
+                        "skills_path": str(config.skills_path),
+                        "skill_count": skill_count,
+                    },
+                ),
+            )
 
         try:
             yield from self._run_turns(
                 config=config,
                 session_id=session.id,
                 run_id=run.id,
+                skill_context=skill_context,
                 is_cancelled=is_cancelled,
             )
         except HarnessError as error:
@@ -122,6 +147,7 @@ class AgentLoop:
         config: HarnessConfig,
         session_id: str,
         run_id: str,
+        skill_context: str | None,
         is_cancelled: CancelCheck,
     ) -> Iterator[HarnessEvent]:
         for tool_turn in range(self._max_tool_turns + 1):
@@ -137,6 +163,7 @@ class AgentLoop:
                 config=config,
                 session_id=session_id,
                 run_id=run_id,
+                skill_context=skill_context,
             )
             assistant_message = _assistant_message_from_response(response)
             self._store.add_message(session_id, run_id, assistant_message)
@@ -166,6 +193,11 @@ class AgentLoop:
                     run_id,
                     HarnessEvent("run_completed", {"run_id": run_id}),
                 )
+                yield from self._run_skill_learning(
+                    config=config,
+                    run_id=run_id,
+                    final_answer=response.content,
+                )
                 return
 
             if tool_turn == self._max_tool_turns:
@@ -189,6 +221,7 @@ class AgentLoop:
         config: HarnessConfig,
         session_id: str,
         run_id: str,
+        skill_context: str | None,
     ) -> Generator[HarnessEvent, None, DeepSeekResponse]:
         request_event = HarnessEvent(
             "provider_request_started",
@@ -199,10 +232,17 @@ class AgentLoop:
         )
         yield from self._emit(run_id, request_event)
 
-        messages = tuple(
+        stored_messages = tuple(
             _deepseek_message_from_message(message)
             for message in self._store.load_messages(session_id)
         )
+        if skill_context is None:
+            messages = stored_messages
+        else:
+            messages = (
+                DeepSeekMessage(role="system", content=skill_context),
+                *stored_messages,
+            )
         options = DeepSeekOptions(
             model=config.model,
             thinking=config.thinking,
@@ -234,6 +274,97 @@ class AgentLoop:
                     ),
                 )
                 self._sleep(delay)
+
+    def _run_skill_learning(
+        self,
+        *,
+        config: HarnessConfig,
+        run_id: str,
+        final_answer: str,
+    ) -> Iterator[HarnessEvent]:
+        if config.skill_learning == "off":
+            return
+
+        yield from self._emit(
+            run_id,
+            HarnessEvent(
+                "skill_learning_started",
+                {
+                    "run_id": run_id,
+                    "mode": config.skill_learning,
+                    "skills_path": str(config.skills_path),
+                },
+            ),
+        )
+
+        try:
+            response = self._provider.complete(
+                build_reflection_messages(config=config, final_answer=final_answer),
+                reflection_options(config),
+            )
+            decision = parse_skill_decision(response.content)
+            if not decision.should_create:
+                yield from self._emit(
+                    run_id,
+                    HarnessEvent(
+                        "skill_learning_skipped",
+                        {"run_id": run_id, "reason": decision.reason},
+                    ),
+                )
+                return
+
+            yield from self._emit(
+                run_id,
+                HarnessEvent(
+                    "skill_proposed",
+                    {
+                        "run_id": run_id,
+                        "skill_name": decision.skill_name or "",
+                        "reason": decision.reason,
+                        "mode": config.skill_learning,
+                    },
+                ),
+            )
+            if config.skill_learning == "suggest":
+                return
+
+            target_path = config.skills_path / (decision.skill_name or "")
+            yield from self._emit(
+                run_id,
+                HarnessEvent(
+                    "skill_write_started",
+                    {
+                        "run_id": run_id,
+                        "skill_name": decision.skill_name or "",
+                        "target_path": str(target_path),
+                    },
+                ),
+            )
+            write_result = write_skill(decision, config.skills_path)
+            yield from self._emit(
+                run_id,
+                HarnessEvent(
+                    "skill_written",
+                    {
+                        "run_id": run_id,
+                        "skill_name": write_result.skill_name,
+                        "target_path": str(write_result.target_path),
+                        "file_count": write_result.file_count,
+                    },
+                ),
+            )
+        except (DeepSeekProviderError, SkillError) as error:
+            yield from self._emit(
+                run_id,
+                HarnessEvent(
+                    "skill_learning_failed",
+                    {
+                        "run_id": run_id,
+                        "error_class": type(error).__name__,
+                        "message": str(error),
+                    },
+                ),
+            )
 
     def _execute_tool_call(
         self,

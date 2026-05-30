@@ -41,6 +41,34 @@ After the run, inspect the generated file:
 uv run python fibonacci_first_30.py
 ```
 
+## Local Skills
+
+The harness reads local skills from `.skills/<skill-name>/SKILL.md`. A skill
+matches when the prompt includes its `name` or `description`; the skill body is
+then sent to the provider as a system instruction for that run.
+
+Example skill:
+
+```markdown
+---
+name: example-skill
+description: Use when the prompt mentions example-skill.
+---
+
+Follow these reusable instructions.
+```
+
+Enable post-run skill reflection when you want the harness to ask whether the
+completed task deserves a reusable skill:
+
+```bash
+uv run xhtang-harness --skill-learning suggest "Summarize this workflow."
+uv run xhtang-harness --skill-learning auto "Summarize this workflow."
+```
+
+`suggest` prints and persists the proposal without writing files. `auto` writes
+validated skills under `.skills/` when the model returns `should_create: true`.
+
 ## Built-In Tools
 
 | Tool | Purpose |
@@ -59,6 +87,8 @@ uv run python fibonacci_first_30.py
 | `--stream` / `--no-stream` | Render run events as they are produced. |
 | `--json` | Request JSON provider output and render event lines as JSON. |
 | `--state-path <path>` | Override the SQLite state database path. |
+| `--skill-learning off\|suggest\|auto` | Control post-run skill reflection. Defaults to `off`. |
+| `--skills-path <path>` | Override the local skill directory. Defaults to `.skills`. |
 | `--debug` | Print local runtime details such as the effective state path. |
 | `--version` | Print the package version and exit. |
 
@@ -83,3 +113,4 @@ uv run mypy src
 | Python version error | Run `uv sync` from the repository root so uv can use the project Python version. |
 | Empty prompt error | Pass a non-empty prompt. |
 | Command is not found | Run it through uv: `uv run xhtang-harness`. |
+| Skill was not used | Make sure the prompt includes the skill `name` or exact `description`. |
