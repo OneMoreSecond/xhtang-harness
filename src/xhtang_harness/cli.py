@@ -62,6 +62,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLite state path. Defaults to .xhtang-harness/state.sqlite3.",
     )
     parser.add_argument(
+        "--skill-learning",
+        choices=["off", "suggest", "auto"],
+        help="After a successful run, ask whether to create a reusable skill.",
+    )
+    parser.add_argument(
+        "--skills-path",
+        type=Path,
+        help="Directory for local skill files. Defaults to .skills.",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Include local runtime details in status output.",
@@ -104,6 +114,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 stream=cast(bool | None, namespace.stream),
                 json_output=cast(bool, namespace.json_output),
                 state_path=cast(Path | None, namespace.state_path),
+                skill_learning=cast(str | None, namespace.skill_learning),
+                skills_path=cast(Path | None, namespace.skills_path),
                 debug=cast(bool, namespace.debug),
             ),
         )
@@ -163,4 +175,18 @@ def _render_event(event: object, *, json_output: bool) -> str:
         return f"run_cancelled: {payload['run_id']}"
     if event.type == "message_recorded":
         return f"message_recorded: {payload['role']} {payload['message_id']}"
+    if event.type == "skill_context_loaded":
+        return f"skill_context_loaded: {payload['skill_count']} local skill(s)"
+    if event.type == "skill_learning_started":
+        return "skill_learning_started: thinking whether to create a skill"
+    if event.type == "skill_learning_skipped":
+        return f"skill_learning_skipped: {payload['reason']}"
+    if event.type == "skill_proposed":
+        return f"skill_proposed: {payload['skill_name']} {payload['reason']}"
+    if event.type == "skill_write_started":
+        return f"skill_write_started: {payload['skill_name']}"
+    if event.type == "skill_written":
+        return f"skill_written: {payload['skill_name']} {payload['target_path']}"
+    if event.type == "skill_learning_failed":
+        return f"skill_learning_failed: {payload['message']}"
     return event.to_json_line()

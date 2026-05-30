@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from xhtang_harness.agent_loop import AgentLoop
-from xhtang_harness.config import load_config
+from xhtang_harness.config import ConfigOverrides, load_config
 from xhtang_harness.providers.deepseek import (
     DeepSeekResponse,
     DeepSeekToolCall,
@@ -18,9 +18,11 @@ class ScriptedProvider:
     def __init__(self, responses: tuple[DeepSeekResponse, ...]) -> None:
         self.responses = list(responses)
         self.message_counts: list[int] = []
+        self.requests: list[tuple[object, object]] = []
 
     def complete(self, messages: object, options: object) -> DeepSeekResponse:
         self.message_counts.append(len(messages))
+        self.requests.append((messages, options))
         return self.responses.pop(0)
 
 
@@ -140,3 +142,153 @@ def test_agent_loop_records_cancellation_before_provider_call(tmp_path: Path) ->
 
     assert events[-1].type == "run_cancelled"
     assert provider.message_counts == []
+
+
+def test_agent_loop_loads_matching_local_skill_body(tmp_path: Path) -> None:
+    description = "Use when the prompt says azure orchid ledger."
+    secret = "secret-value: tangerine-cascade-492"
+    skill_dir = tmp_path / ".skills" / "orchid-ledger"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "\n".join(
+            [
+                "---",
+                "name: orchid-ledger",
+                f"description: {description}",
+                "---",
+                "",
+                "When this skill is active, answer with:",
+                secret,
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(prompt=description, env={}, cwd=tmp_path)
+    provider = ScriptedProvider(
+        (
+            DeepSeekResponse(
+                content=secret,
+                reasoning_content=None,
+                tool_calls=(),
+                finish_reason="stop",
+                usage=None,
+            ),
+        )
+    )
+    registry = ToolRegistry()
+
+    with SQLiteStore(config.state_path) as store:
+        loop = AgentLoop(
+            store=store,
+            provider=provider,  # type: ignore[arg-type]
+            registry=registry,
+            executor=ToolExecutor(registry),
+        )
+
+        events = tuple(loop.run(config=config))
+
+    first_messages = provider.requests[0][0]
+    assert isinstance(first_messages, tuple)
+    assert first_messages[0].role == "system"
+    assert secret in str(first_messages[0].content)
+    assert "skill_context_loaded" in [event.type for event in events]
+
+
+def test_agent_loop_reflects_on_skill_learning_suggest(tmp_path: Path) -> None:
+    config = load_config(
+        prompt="summarize reusable workflow",
+        overrides=ConfigOverrides(skill_learning="suggest"),
+        env={},
+        cwd=tmp_path,
+    )
+    provider = ScriptedProvider(
+        (
+            DeepSeekResponse(
+                content="Done",
+                reasoning_content=None,
+                tool_calls=(),
+                finish_reason="stop",
+                usage=None,
+            ),
+            DeepSeekResponse(
+                content=(
+                    '{"should_create": true, "reason": "Reusable.", '
+                    '"skill_name": "workflow-note", '
+                    '"description": "Use for workflow notes.", '
+                    '"skill_body": "Keep notes concise."}'
+                ),
+                reasoning_content=None,
+                tool_calls=(),
+                finish_reason="stop",
+                usage=None,
+            ),
+        )
+    )
+    registry = ToolRegistry()
+
+    with SQLiteStore(config.state_path) as store:
+        loop = AgentLoop(
+            store=store,
+            provider=provider,  # type: ignore[arg-type]
+            registry=registry,
+            executor=ToolExecutor(registry),
+        )
+
+        events = tuple(loop.run(config=config))
+
+    assert [event.type for event in events][-3:] == [
+        "run_completed",
+        "skill_learning_started",
+        "skill_proposed",
+    ]
+    assert not (tmp_path / ".skills" / "workflow-note").exists()
+
+
+def test_agent_loop_auto_writes_valid_skill(tmp_path: Path) -> None:
+    config = load_config(
+        prompt="make a reusable note",
+        overrides=ConfigOverrides(skill_learning="auto"),
+        env={},
+        cwd=tmp_path,
+    )
+    provider = ScriptedProvider(
+        (
+            DeepSeekResponse(
+                content="Done",
+                reasoning_content=None,
+                tool_calls=(),
+                finish_reason="stop",
+                usage=None,
+            ),
+            DeepSeekResponse(
+                content=(
+                    '{"should_create": true, "reason": "Reusable.", '
+                    '"skill_name": "reusable-note", '
+                    '"description": "Use for reusable notes.", '
+                    '"skill_body": "Write one clear note."}'
+                ),
+                reasoning_content=None,
+                tool_calls=(),
+                finish_reason="stop",
+                usage=None,
+            ),
+        )
+    )
+    registry = ToolRegistry()
+
+    with SQLiteStore(config.state_path) as store:
+        loop = AgentLoop(
+            store=store,
+            provider=provider,  # type: ignore[arg-type]
+            registry=registry,
+            executor=ToolExecutor(registry),
+        )
+
+        events = tuple(loop.run(config=config))
+
+    skill_file = tmp_path / ".skills" / "reusable-note" / "SKILL.md"
+    assert skill_file.exists()
+    assert "description: Use for reusable notes." in skill_file.read_text(
+        encoding="utf-8"
+    )
+    assert events[-1].type == "skill_written"

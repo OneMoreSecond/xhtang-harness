@@ -34,6 +34,8 @@
 | Stream output | `--stream` / `--no-stream` | No | `xhtang_harness.cli`, agent loop | [source: UX doc, Runtime doc] |
 | JSON output request | `--json` | No | Provider options and prompt builder | [source: DeepSeek skill, Design decision] |
 | Storage path | `--state-path <path>` | No | `xhtang_harness.storage.sqlite` | [source: Storage doc, Design decision] |
+| Skill learning mode | `--skill-learning off|suggest|auto` | No | `xhtang_harness.config`, `xhtang_harness.agent_loop` | [source: `agents/2026-05-30-create-skill.md`, implementation] |
+| Skill path | `--skills-path <path>` | No | `xhtang_harness.config`, `xhtang_harness.skills` | [source: `agents/2026-05-30-create-skill.md`, implementation] |
 | Debug mode | `--debug` | No | CLI, telemetry, provider adapter | [source: Runtime doc, Design decision] |
 
 ## Environment Variables
@@ -46,6 +48,8 @@
 | Default thinking mode | `XHTANG_HARNESS_THINKING` | No | Config and provider options | [source: DeepSeek skill, Design decision] |
 | Default reasoning effort | `XHTANG_HARNESS_REASONING_EFFORT` | No | Config and provider options | [source: DeepSeek skill, Design decision] |
 | State database path | `XHTANG_HARNESS_STATE_PATH` | No | SQLite storage | [source: Storage doc] |
+| Default skill learning mode | `XHTANG_HARNESS_SKILL_LEARNING` | No | Config and post-run skill reflection | [source: `agents/2026-05-30-create-skill.md`, implementation] |
+| Default skill path | `XHTANG_HARNESS_SKILLS_PATH` | No | Config and local skill loading/writing | [source: `agents/2026-05-30-create-skill.md`, implementation] |
 | Log level | `XHTANG_HARNESS_LOG_LEVEL` | No | Telemetry | [source: Runtime doc, Design decision] |
 | User isolation ID | `XHTANG_HARNESS_USER_ID` | No | DeepSeek provider `user_id` | [source: DeepSeek skill, Design decision] |
 
@@ -55,6 +59,7 @@
 | --- | --- | --- | --- | --- |
 | Local config | `.xhtang-harness/config.toml` | No | `xhtang_harness.config` | [source: Design decision] |
 | Persistent state | `.xhtang-harness/state.sqlite3` or override path | No on first run; yes for resume/list | `xhtang_harness.storage.sqlite` | [source: Storage doc] |
+| Local skills | `.skills/<skill-name>/SKILL.md` or override path | No | `xhtang_harness.skills` | [source: `agents/2026-05-30-create-skill.md`, implementation] |
 | Tool definitions | Future `.xhtang-harness/tools/*.toml` | No | Tool registry | [source: Modules doc, Design decision] |
 | Prompt templates | Future `.xhtang-harness/prompts/*.md` | No | Prompt builder | [source: Design decision] |
 
@@ -69,6 +74,7 @@ Configuration precedence should be command argument, then environment variable, 
 | Log file | `.xhtang-harness/logs/harness.log` | Telemetry | Local diagnostics when file logging is enabled. | [source: Runtime doc, Design decision] |
 | Exported session | User-specified path from future `export` command | CLI/app | Portable transcript export. | [source: Storage doc, Design decision] |
 | Tool artifacts | `.xhtang-harness/artifacts/<run-id>/` | Tool executor | Files created by tools during a run. | [source: Runtime doc, Design decision] |
+| Generated skills | `.skills/<skill-name>/SKILL.md` and optional `references/*.md` | Skill writer | Reusable local skill instructions written in `--skill-learning auto` mode. | [source: `agents/2026-05-30-create-skill.md`, implementation] |
 
 ## Non-File Outputs
 

@@ -15,6 +15,13 @@ EventType = Literal[
     "run_completed",
     "run_failed",
     "run_cancelled",
+    "skill_context_loaded",
+    "skill_learning_started",
+    "skill_learning_skipped",
+    "skill_proposed",
+    "skill_write_started",
+    "skill_written",
+    "skill_learning_failed",
 ]
 
 

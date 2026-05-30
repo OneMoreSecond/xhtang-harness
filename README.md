@@ -42,11 +42,18 @@ uv run xhtang-harness --thinking enabled --reasoning-effort high "Use the curren
 uv run xhtang-harness "Use the bash tool to run: pwd"
 uv run xhtang-harness --no-stream --state-path .xhtang-harness/state.sqlite3 "hello"
 uv run xhtang-harness --debug "hello"
+uv run xhtang-harness --skill-learning suggest "Capture the reusable workflow."
 ```
 
 The default SQLite state is worktree-local at `.xhtang-harness/state.sqlite3`.
 Use `--state-path` or `XHTANG_HARNESS_STATE_PATH` only when you want to share
 state explicitly.
+
+Local skills live under `.skills/<skill-name>/SKILL.md`. If a prompt includes a
+skill name or exact description, the harness loads that skill body as a system
+instruction. `--skill-learning suggest` asks the provider whether the completed
+task deserves a new skill; `--skill-learning auto` writes validated skills to
+`.skills/`.
 
 Built-in tools exposed to the model:
 

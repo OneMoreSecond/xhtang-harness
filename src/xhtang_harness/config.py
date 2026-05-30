@@ -15,9 +15,11 @@ from xhtang_harness.providers.deepseek import (
 
 ThinkingMode = Literal["enabled", "disabled"]
 ReasoningEffort = Literal["high", "max"]
+SkillLearningMode = Literal["off", "suggest", "auto"]
 
 _VALID_THINKING = {"enabled", "disabled"}
 _VALID_REASONING = {"high", "max"}
+_VALID_SKILL_LEARNING = {"off", "suggest", "auto"}
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,8 @@ class HarnessConfig:
     stream: bool
     json_output: bool
     state_path: Path
+    skill_learning: SkillLearningMode
+    skills_path: Path
     debug: bool
     api_key: str | None
     base_url: str
@@ -44,6 +48,8 @@ class ConfigOverrides:
     stream: bool | None = None
     json_output: bool = False
     state_path: Path | None = None
+    skill_learning: str | None = None
+    skills_path: Path | None = None
     debug: bool = False
 
 
@@ -85,6 +91,20 @@ def load_config(
         disk_config=disk_config,
         cwd=active_cwd,
     )
+    skill_learning = _validate_skill_learning(
+        _first_str(
+            active_overrides.skill_learning,
+            active_env.get("XHTANG_HARNESS_SKILL_LEARNING"),
+            _str_from_config(disk_config, "skill_learning"),
+            "off",
+        )
+    )
+    skills_path = _resolve_skills_path(
+        override=active_overrides.skills_path,
+        env_value=active_env.get("XHTANG_HARNESS_SKILLS_PATH"),
+        disk_config=disk_config,
+        cwd=active_cwd,
+    )
 
     return HarnessConfig(
         prompt=clean_prompt,
@@ -94,6 +114,8 @@ def load_config(
         stream=True if active_overrides.stream is None else active_overrides.stream,
         json_output=active_overrides.json_output,
         state_path=state_path,
+        skill_learning=skill_learning,
+        skills_path=skills_path,
         debug=active_overrides.debug,
         api_key=_optional_first_str(active_env.get("DEEPSEEK_API_KEY")),
         base_url=_first_str(
@@ -150,6 +172,29 @@ def _resolve_state_path(
     return cwd / ".xhtang-harness" / "state.sqlite3"
 
 
+def _resolve_skills_path(
+    *,
+    override: Path | None,
+    env_value: str | None,
+    disk_config: Mapping[str, object],
+    cwd: Path,
+) -> Path:
+    if override is not None:
+        return _absolute_or_cwd(override.expanduser(), cwd)
+    if env_value is not None and env_value.strip():
+        return _absolute_or_cwd(Path(env_value).expanduser(), cwd)
+    disk_skills = _str_from_config(disk_config, "skills_path")
+    if disk_skills is not None:
+        return _absolute_or_cwd(Path(disk_skills).expanduser(), cwd)
+    return cwd / ".skills"
+
+
+def _absolute_or_cwd(path: Path, cwd: Path) -> Path:
+    if path.is_absolute():
+        return path
+    return cwd / path
+
+
 def _str_from_config(config: Mapping[str, object], key: str) -> str | None:
     value = config.get(key)
     if value is None:
@@ -185,3 +230,9 @@ def _optional_reasoning(value: str | None) -> ReasoningEffort | None:
     if value not in _VALID_REASONING:
         raise ConfigError("reasoning effort must be high or max")
     return cast(ReasoningEffort, value)
+
+
+def _validate_skill_learning(value: str) -> SkillLearningMode:
+    if value not in _VALID_SKILL_LEARNING:
+        raise ConfigError("skill learning must be off, suggest, or auto")
+    return cast(SkillLearningMode, value)

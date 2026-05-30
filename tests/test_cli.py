@@ -56,6 +56,41 @@ def test_main_renders_harness_events(
     assert seen_config.prompt == "Test goal"
 
 
+def test_main_renders_skill_learning_status(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen_config: HarnessConfig | None = None
+
+    def fake_run(config: HarnessConfig) -> Iterator[HarnessEvent]:
+        nonlocal seen_config
+        seen_config = config
+        yield HarnessEvent(
+            "skill_learning_started",
+            {"run_id": "run_1", "mode": config.skill_learning},
+        )
+        yield HarnessEvent(
+            "skill_written",
+            {
+                "run_id": "run_1",
+                "skill_name": "demo-skill",
+                "target_path": ".skills/demo-skill",
+                "file_count": 1,
+            },
+        )
+
+    monkeypatch.setattr("xhtang_harness.cli.run_harness", fake_run)
+
+    exit_code = main(["--skill-learning", "auto", "Test goal"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "skill_learning_started: thinking whether to create a skill" in captured.out
+    assert "skill_written: demo-skill" in captured.out
+    assert seen_config is not None
+    assert seen_config.skill_learning == "auto"
+
+
 def test_main_renders_config_errors(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
