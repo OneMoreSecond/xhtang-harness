@@ -103,6 +103,30 @@ def test_main_renders_skill_learning_status(
     assert seen_config.skill_learning == "auto"
 
 
+def test_main_renders_bash_command_without_debug(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(config: HarnessConfig) -> Iterator[HarnessEvent]:
+        yield HarnessEvent(
+            "tool_call_started",
+            {
+                "tool_call_id": "call_1",
+                "name": "bash",
+                "command": "pwd",
+            },
+        )
+        yield HarnessEvent("run_completed", {"run_id": "run_1"})
+
+    monkeypatch.setattr("xhtang_harness.cli.run_harness", fake_run)
+
+    exit_code = main(["Use bash to run pwd"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert 'tool_call_started: bash command="pwd"' in captured.out
+
+
 def test_main_reads_additional_prompt_after_skill_learning(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,

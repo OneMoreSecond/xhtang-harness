@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Generator, Iterator
 from time import sleep
 
@@ -392,10 +393,7 @@ class AgentLoop:
             run_id,
             HarnessEvent(
                 "tool_call_started",
-                {
-                    "tool_call_id": provider_tool_call.id,
-                    "name": provider_tool_call.name,
-                },
+                _tool_call_started_payload(provider_tool_call),
             ),
         )
 
@@ -497,6 +495,27 @@ def _usage_from_deepseek(usage: DeepSeekUsage) -> ProviderUsage:
         prompt_cache_hit_tokens=usage.prompt_cache_hit_tokens,
         prompt_cache_miss_tokens=usage.prompt_cache_miss_tokens,
     )
+
+
+def _tool_call_started_payload(tool_call: DeepSeekToolCall) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "tool_call_id": tool_call.id,
+        "name": tool_call.name,
+    }
+    if tool_call.name != "bash":
+        return payload
+
+    try:
+        arguments = json.loads(tool_call.arguments)
+    except json.JSONDecodeError:
+        return payload
+    if not isinstance(arguments, dict):
+        return payload
+
+    command = arguments.get("command")
+    if isinstance(command, str):
+        payload["command"] = command
+    return payload
 
 
 def _not_cancelled() -> bool:

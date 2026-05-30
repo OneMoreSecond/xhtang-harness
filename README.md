@@ -89,6 +89,8 @@ Default state and skill paths are worktree-local. Use `--state-path`, `XHTANG_HA
 
 The `bash` tool should be used for read-only inspection unless the user explicitly asks for local file changes. [source: Tools]
 
+When the model calls the `bash` tool, normal CLI output prints the requested shell command in the `tool_call_started` line, even when `--debug` is not enabled. [source: CLI, Agent loop]
+
 ## Directory Structure
 
 | Path | Purpose | Source |

@@ -104,6 +104,8 @@ uv run xhtang-harness --skill-learning auto "Summarize this workflow."
 | `get_current_time` | Returns the current UTC time as an ISO-8601 timestamp. | [source: Tools] |
 | `bash` | Runs `/bin/bash -lc` with captured exit code, stdout, stderr, optional `cwd`, and a bounded timeout. | [source: Tools] |
 
+When the model calls `bash`, normal CLI output includes the requested command in the `tool_call_started` line even when `--debug` is not enabled. [source: CLI, Agent loop]
+
 ## Options
 
 | Option | Description | Source |

@@ -123,6 +123,58 @@ def test_agent_loop_executes_tool_and_replays_history(tmp_path: Path) -> None:
     assert messages[-1].content == "It is noon."
 
 
+def test_agent_loop_prints_bash_command_in_tool_start_event(tmp_path: Path) -> None:
+    config = load_config(prompt="show cwd", env={}, cwd=tmp_path)
+    provider = ScriptedProvider(
+        (
+            DeepSeekResponse(
+                content="",
+                reasoning_content=None,
+                tool_calls=(
+                    DeepSeekToolCall(
+                        id="call_1",
+                        name="bash",
+                        arguments='{"command": "pwd"}',
+                    ),
+                ),
+                finish_reason="tool_calls",
+                usage=None,
+            ),
+            DeepSeekResponse(
+                content="Done.",
+                reasoning_content=None,
+                tool_calls=(),
+                finish_reason="stop",
+                usage=None,
+            ),
+        )
+    )
+    registry = ToolRegistry(
+        (
+            ToolDefinition(
+                name="bash",
+                description="Run bash.",
+                parameters={"type": "object"},
+                execute=lambda arguments: "ok",
+            ),
+        )
+    )
+
+    with SQLiteStore(config.state_path) as store:
+        loop = AgentLoop(
+            store=store,
+            provider=provider,  # type: ignore[arg-type]
+            registry=registry,
+            executor=ToolExecutor(registry),
+        )
+
+        events = tuple(loop.run(config=config))
+
+    tool_start = next(event for event in events if event.type == "tool_call_started")
+    assert tool_start.payload["name"] == "bash"
+    assert tool_start.payload["command"] == "pwd"
+
+
 def test_agent_loop_records_cancellation_before_provider_call(tmp_path: Path) -> None:
     config = load_config(prompt="hello", env={}, cwd=tmp_path)
     provider = ScriptedProvider(())

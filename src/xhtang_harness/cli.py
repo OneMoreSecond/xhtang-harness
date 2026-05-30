@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from dataclasses import replace
@@ -172,6 +173,12 @@ def _render_event(event: object, *, json_output: bool) -> str:
     if event.type == "answer_delta":
         return f"answer_delta: {payload['text']}"
     if event.type == "tool_call_started":
+        command = payload.get("command")
+        if isinstance(command, str):
+            return (
+                f"tool_call_started: {payload['name']} "
+                f"command={json.dumps(command, ensure_ascii=False)}"
+            )
         return f"tool_call_started: {payload['name']}"
     if event.type == "tool_call_finished":
         return f"tool_call_finished: {payload['status']} {payload['summary']}"
