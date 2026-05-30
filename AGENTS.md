@@ -127,6 +127,10 @@ Evaluate the scope of the mistake and update the file of most fit level.
 
 # Tools
 
+## Environment Variable
+
+If some required environment variable is not present, try `source ~/.bashrc` for possible refresh
+
 ## Git
 
 ### In git worktree checkout directory
@@ -155,7 +159,7 @@ Avoid running raw code string with `python -c` or other tools because it's hard 
 - Distribution name: `xhtang-harness`.
 - Import package: `xhtang_harness`.
 - Package source lives under `src/xhtang_harness/`.
-- Tests live under `tests/`.
+- Tests live under `tests/`. NEVER touch real user state in test code (prefer using mock data).
 - Project metadata and tool configuration live in `pyproject.toml`.
 
 ## Python commands

@@ -6,7 +6,7 @@
 | --- | --- |
 | User task | `agents/2026-05-30-init-design.md` |
 | Greenfield | `agents/2026-05-30-greenfield.md` |
-| CLI code | `src/xhtang_harness/cli.py` and `bin/xhtang-harness` |
+| CLI code | `src/xhtang_harness/cli.py`, `pyproject.toml`, and `README.md` |
 | DeepSeek skill | `.agents/skills/deepseek-api/SKILL.md` |
 | Design decision | Decision made in this document for the initial implementation plan |
 
@@ -22,7 +22,7 @@
 
 ## Product Goal
 
-The first harness UX should make long-running model and tool work visible, interruptible, and resumable from the local command entry. [source: User task, Greenfield, Design decision]
+The first harness UX should make long-running model and tool work visible, interruptible, and resumable from the uv-run local command entry. [source: User task, Greenfield, Design decision]
 
 ## Expectations
 
@@ -54,7 +54,7 @@ The first harness UX should make long-running model and tool work visible, inter
 
 | In scope | Out of scope | Source |
 | --- | --- | --- |
-| Worktree-local CLI command. | Multi-user web application. | [source: Greenfield, Design decision] |
+| `uv run xhtang-harness` CLI command. | Multi-user web application. | [source: Greenfield, Design decision] |
 | Streaming text and status events. | Rich terminal layout with panes and mouse interactions. | [source: User task, Design decision] |
 | Session persistence in local storage. | Hosted database or cloud sync. | [source: User task, Design decision] |
 | DeepSeek V4 Pro provider path. | Multiple provider selection UI. | [source: DeepSeek skill, Design decision] |

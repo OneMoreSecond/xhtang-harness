@@ -6,7 +6,7 @@
 | --- | --- |
 | User task | `agents/2026-05-30-init-design.md` |
 | Greenfield | `agents/2026-05-30-greenfield.md` |
-| CLI code | `src/xhtang_harness/cli.py` and `bin/xhtang-harness` |
+| CLI code | `src/xhtang_harness/cli.py`, `pyproject.toml`, and `README.md` |
 | DeepSeek skill | `.agents/skills/deepseek-api/SKILL.md` |
 | Design decision | Decision made in this document for the initial implementation plan |
 
