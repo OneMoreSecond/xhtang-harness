@@ -20,6 +20,7 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 | External interface | Command argument, environment variable, disk input, output file, stdout, stderr, or exit code boundary. | [source: `doc/external-interfaces.md`] |
 | Worktree run | One harness invocation from a specific git checkout/worktree with its own current working directory. | [source: user follow-up, `README.md`, design decision] |
 | Parallel separation | Isolation of state, logs, artifacts, and temporary runtime files so simultaneous runs from multiple worktrees do not collide. | [source: user follow-up, design decision] |
+| Skeleton file | Placeholder source or test file that reserves a module boundary for parallel development but does not implement behavior yet. | [source: user instruction, design decision] |
 
 - Current package source lives under `src/xhtang_harness/`, tests live under `tests/`, package metadata is in `pyproject.toml`, and the CLI entry point is `xhtang_harness.cli:main`. [source: `pyproject.toml`, `README.md`]
 - The canonical local workflow is `uv sync`, `uv run xhtang-harness ...`, `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src`. [source: `AGENTS.md`, `README.md`]
@@ -30,10 +31,12 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 - DeepSeek `/chat/completions` is stateless, so each provider request must include the complete conversation history. [source: `.agents/skills/deepseek-api/SKILL.md`]
 - DeepSeek thinking-mode tool calls require preserving assistant `reasoning_content` and `tool_calls` in later requests. [source: `.agents/skills/deepseek-api/SKILL.md`]
 - Simultaneous runs from multiple git worktrees need explicit separation for local state, logs, tool artifacts, and config overrides. [source: user follow-up]
+- User requested a directory and file skeleton based on the implementation plan; implementation and test files may be empty and do not need to be runnable yet. [source: user instruction]
 
 ## Constraint and Assumption
 
 - This task creates an implementation plan only; it does not implement MVP runtime code. [source: user request]
+- Skeleton creation is allowed in this follow-up, but runtime behavior should remain unimplemented. [source: user instruction]
 - Keep the implementation simple and local-first; avoid a hosted service, multi-provider UI, rich TUI, or background queue for the MVP. [source: `doc/mvp.md`, `AGENTS.md`]
 - Use uv as the project runner and dependency manager. [source: `AGENTS.md`, `README.md`]
 - Use SQLite through Python standard library `sqlite3` for the first durable store. [source: `doc/persistent-data-storage.md`]
@@ -65,6 +68,7 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 - Treat `doc/mvp.md` acceptance checks as the implementation completion gate. [source: `doc/mvp.md`]
 - Add a parallel-worktree separation rule: default `.xhtang-harness/` state, logs, artifacts, and temp files are worktree-local; cross-worktree sharing must be an explicit external-interface choice. [source: user follow-up, design decision]
 - Use SQLite connection timeouts and short transactions for run status/message writes so simultaneous runs in the same selected state database fail predictably or wait briefly instead of corrupting state. [source: Python `sqlite3` behavior, design decision]
+- Create placeholder implementation and test files for each planned module slice so separate worktrees can implement different phases with fewer first-touch file conflicts. [source: user instruction, design decision]
 
 ## Design
 
@@ -81,6 +85,25 @@ now create a detailed implementation plan agents/2026-05-30-mvp-implementation.m
 | Provider | `src/xhtang_harness/providers/base.py`, `src/xhtang_harness/providers/deepseek.py` | Provide a testable provider protocol and DeepSeek implementation. | [source: `doc/module-responsibilities.md`, `.agents/skills/deepseek-api/SKILL.md`] |
 | Agent loop | `src/xhtang_harness/agent_loop.py` | Execute provider/tool turns and emit/persist events until completion, failure, or cancellation. | [source: `doc/runtime-flow-and-reliability.md`] |
 | Telemetry | `src/xhtang_harness/telemetry.py` | Provide structured logs and optional log-file setup. | [source: `doc/external-interfaces.md`, `doc/runtime-flow-and-reliability.md`] |
+
+### Skeleton Files
+
+| Slice | Source skeleton | Test skeleton | Source |
+| --- | --- | --- | --- |
+| App service | `src/xhtang_harness/app.py` | `tests/test_app.py` | [source: user instruction, design decision] |
+| Agent loop | `src/xhtang_harness/agent_loop.py` | `tests/test_agent_loop.py` | [source: user instruction, design decision] |
+| Config | `src/xhtang_harness/config.py` | `tests/test_config.py` | [source: user instruction, design decision] |
+| Conversation | `src/xhtang_harness/conversation.py` | `tests/test_conversation.py` | [source: user instruction, design decision] |
+| Events | `src/xhtang_harness/events.py` | `tests/test_events.py` | [source: user instruction, design decision] |
+| Errors | `src/xhtang_harness/errors.py` | Future tests in relevant slices | [source: user instruction, design decision] |
+| Telemetry | `src/xhtang_harness/telemetry.py` | Future tests in CLI/runtime slices | [source: user instruction, design decision] |
+| Provider base | `src/xhtang_harness/providers/base.py` | `tests/providers/test_provider_base.py` | [source: user instruction, design decision] |
+| DeepSeek provider | `src/xhtang_harness/providers/deepseek.py` | `tests/providers/test_deepseek.py` | [source: user instruction, design decision] |
+| SQLite storage | `src/xhtang_harness/storage/sqlite.py` | `tests/storage/test_sqlite.py` | [source: user instruction, design decision] |
+| Built-in tools | `src/xhtang_harness/tools/builtin.py` | `tests/tools/test_builtin.py` | [source: user instruction, design decision] |
+| Tool executor | `src/xhtang_harness/tools/executor.py` | `tests/tools/test_executor.py` | [source: user instruction, design decision] |
+| Tool registry | `src/xhtang_harness/tools/registry.py` | `tests/tools/test_registry.py` | [source: user instruction, design decision] |
+| Parallel worktree behavior | Config/storage/runtime files above | `tests/test_parallel_worktree.py` | [source: user instruction, user follow-up] |
 
 ### Event Types
 
@@ -221,5 +244,6 @@ The checkboxes below are future MVP implementation tasks, not completed by this 
 
 - Created this detailed MVP implementation plan at `agents/2026-05-30-mvp-implementation.md`. [source: user request]
 - Added parallel worktree separation recommendations covering worktree-local default state, opt-in shared state, collision-resistant run IDs, per-run artifacts, worktree-local logs, short SQLite transactions, and worktree-local temp/config paths. [source: user follow-up, `agents/2026-05-30-mvp-implementation.md`]
-- Verified current repository checks: `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src` pass. [source: shell validation]
-- No runtime code was changed by this planning task. [source: user request, git diff scope]
+- Created source and test skeleton files for app, agent loop, config, conversation, events, errors, telemetry, providers, storage, tools, and parallel-worktree tests. [source: user instruction, code changes]
+- Verified current repository checks after skeleton creation: `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy src` pass. [source: shell validation]
+- Runtime behavior remains unimplemented beyond placeholder skeleton modules. [source: user instruction, code changes]
