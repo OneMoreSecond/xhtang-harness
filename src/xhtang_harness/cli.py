@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -103,41 +104,53 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     namespace = parser.parse_args(argv)
     goal = cast(str, namespace.goal)
+    overrides = ConfigOverrides(
+        session=cast(str | None, namespace.session),
+        thinking=cast(str | None, namespace.thinking),
+        reasoning_effort=cast(str | None, namespace.reasoning_effort),
+        stream=cast(bool | None, namespace.stream),
+        json_output=cast(bool, namespace.json_output),
+        state_path=cast(Path | None, namespace.state_path),
+        skill_learning=cast(str | None, namespace.skill_learning),
+        skills_path=cast(Path | None, namespace.skills_path),
+        debug=cast(bool, namespace.debug),
+    )
 
     try:
-        config = load_config(
-            prompt=goal,
-            overrides=ConfigOverrides(
-                session=cast(str | None, namespace.session),
-                thinking=cast(str | None, namespace.thinking),
-                reasoning_effort=cast(str | None, namespace.reasoning_effort),
-                stream=cast(bool | None, namespace.stream),
-                json_output=cast(bool, namespace.json_output),
-                state_path=cast(Path | None, namespace.state_path),
-                skill_learning=cast(str | None, namespace.skill_learning),
-                skills_path=cast(Path | None, namespace.skills_path),
-                debug=cast(bool, namespace.debug),
-            ),
-        )
+        config = load_config(prompt=goal, overrides=overrides)
         if config.debug and not config.json_output:
             print(f"state_path: {config.state_path}")
 
-        last_event_type = None
-        for event in run_harness(config):
-            last_event_type = event.type
-            print(_render_event(event, json_output=config.json_output), flush=True)
+        while True:
+            last_event_type = None
+            run_completed = False
+            session_id = config.session
+            for event in run_harness(config):
+                last_event_type = event.type
+                if event.type == "run_started":
+                    event_session_id = event.payload.get("session_id")
+                    if isinstance(event_session_id, str) and event_session_id.strip():
+                        session_id = event_session_id
+                if event.type == "run_completed":
+                    run_completed = True
+                print(_render_event(event, json_output=config.json_output), flush=True)
+
+            if last_event_type == "run_cancelled":
+                return 130
+            if last_event_type == "run_failed":
+                return 1
+            if not run_completed:
+                return 0
+
+            next_prompt = _read_additional_prompt()
+            if next_prompt is None:
+                return 0
+            config = replace(config, prompt=next_prompt, session=session_id)
     except HarnessError as error:
         print(f"{error.code}: {error.message}", file=sys.stderr)
         return error.exit_code
     except ValueError as error:
         parser.error(str(error))
-
-    if last_event_type == "run_cancelled":
-        return 130
-    if last_event_type == "run_failed":
-        return 1
-
-    return 0
 
 
 def _render_event(event: object, *, json_output: bool) -> str:
@@ -190,3 +203,18 @@ def _render_event(event: object, *, json_output: bool) -> str:
     if event.type == "skill_learning_failed":
         return f"skill_learning_failed: {payload['message']}"
     return event.to_json_line()
+
+
+def _read_additional_prompt() -> str | None:
+    if not sys.stdin.isatty():
+        return None
+
+    print("additional prompt (blank to exit): ", end="", file=sys.stderr, flush=True)
+    raw_prompt = sys.stdin.readline()
+    if raw_prompt == "":
+        return None
+
+    prompt = raw_prompt.strip()
+    if not prompt:
+        return None
+    return prompt
